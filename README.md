@@ -1,53 +1,78 @@
-# sd-zonecreator (web)
+# Zone Creator (web)
 
-> A browser-based zone creation tool for GTA V / FiveM. Draw polygons on an interactive satellite map and export them as PolyZone, ox_lib, vector2 or vector3 code — no server, no resource, no game required.
+> Draw polygon zones on an interactive GTA V satellite map and export them as PolyZone, ox_lib, vector2 or vector3 code. Plain HTML, CSS and JavaScript — no build step, no framework, no TypeScript.
 
-**Live site:** https://YOUR-USERNAME.github.io/sd-zonecreator/
+**Live site:** https://YOUR-USERNAME.github.io/YOUR-REPO/
 
-This is the standalone web version of the original FiveM resource. Everything runs client-side in the browser: the map, the editor, the exporters. There is no backend and nothing is uploaded anywhere — your zones are saved in your browser's `localStorage`.
+Everything runs in the browser. There is no backend and nothing is uploaded anywhere — your zones are stored in `localStorage` on your own machine.
+
+## Deploying to GitHub Pages
+
+Because there is nothing to compile, the files you commit are the files the browser loads. That means the simplest Pages setup works:
+
+1. Push these files to your repo (`index.html` must sit at the repo root).
+2. **Settings → Pages → Source → Deploy from a branch**.
+3. Branch: `main`, folder: **/ (root)**. Save.
+4. Wait a minute, then open the URL Pages gives you.
+
+No Actions workflow, no `dist/` folder, nothing to configure. If you edit a file and push, the change is live after the next Pages build.
+
+Every path in `index.html` is relative (`css/styles.css`, `js/app.js`, `assets/gta_map.jpg`), so the site works at a project subpath, a user site, or any static host — Netlify, Cloudflare Pages, nginx, or just opening `index.html` from disk.
+
+## Running locally
+
+Open `index.html` in a browser, or serve the folder if you prefer:
+
+```bash
+python3 -m http.server 8000
+# then visit http://localhost:8000
+```
+
+A plain `file://` open works too, though the clipboard falls back to `document.execCommand('copy')` outside a secure context.
+
+## Files
+
+```
+index.html          markup and modals
+css/styles.css      all styling
+js/icons.js         inline SVG icon set
+js/app.js           the whole application
+assets/gta_map.jpg  satellite map (4096 x 6144)
+vendor/leaflet/     Leaflet 1.9.4, vendored so there's no CDN dependency
+```
 
 ## Features
 
-- **Interactive map** — click a high-resolution GTA V satellite map to place zone points
-- **Multiple export formats** — PolyZone, ox_lib, vector2, vector3
-- **Import support** — paste existing zone code to edit and visualise it
-- **Grid mode** — grid overlay with snapping to 10-unit intervals
-- **Multi-zone management** — build and manage several zones in one session
-- **Autosave** — zones persist in `localStorage` across refreshes
+- **Interactive map** — click to place points on a high-resolution satellite map
+- **Multiple export formats** — PolyZone, ox_lib, vector2, vector3, copied to clipboard
+- **Import** — paste existing zone code to edit and visualise it; name, thickness and minZ/maxZ are read out of the code where present
+- **Template shapes** — rectangle, circle, triangle, pentagon, hexagon, star, L-shape, each with size and rotation sliders and a draggable centre
+- **Grid snapping** — grid overlay with 10-unit snapping
+- **Multi-zone** — build several zones in one session, each with its own colour, thickness and ground Z
+- **Autosave** — zones persist across refreshes in `localStorage`
 
-### Template shapes
+### Point editing
 
-| Shape | Description |
-|-------|-------------|
-| Rectangle | 4-point square/rectangular zone |
-| Circle | 16-point circular approximation |
-| Triangle | 3-point triangular zone |
-| Pentagon | 5-point pentagonal zone |
-| Hexagon | 6-point hexagonal zone |
-| Star | 10-point star shape |
-| L-Shape | 6-point L-shaped zone |
+| Action | How |
+|---|---|
+| Add point | Click the map |
+| Move point | Drag the marker |
+| Delete point | Right-click the marker |
+| Insert on an edge | Click the polygon outline |
+| Select points | Shift + drag a box |
+| Toggle one point's selection | Ctrl + click the marker |
+| Remove last point | `Delete` or `Backspace` |
 
-All templates support drag-to-position, a scale slider (5–3000 units) and a rotation slider (0°–360°).
+### Shortcuts
 
-### Point management
-
-- **Click on map** — add a point to the active zone
-- **Drag points** — reposition any point marker
-- **Right-click point** — delete a single point
-- **Click a polygon edge** — insert a point on the closest edge
-- **Shift + drag** — box-select multiple points
-- **Delete selected** — remove all selected points at once
-
-### Tools and shortcuts
-
-| Tool | Shortcut |
-|------|----------|
-| Snap to grid | `G` |
-| Show distances | `D` |
-| Undo | `Ctrl+Z` |
-| Redo | `Ctrl+Y` |
-| Search location | `Ctrl+F` |
-| Close modals | `Esc` |
+| Key | Action |
+|---|---|
+| `G` | Snap to grid |
+| `D` | Show distances |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` | Redo |
+| `Ctrl+F` | Jump to coordinates |
+| `Esc` | Close modal / cancel template |
 
 ## Export examples
 
@@ -58,11 +83,11 @@ local myZone = PolyZone:Create({
     vector2(100.0, 200.0),
     vector2(150.0, 200.0),
     vector2(150.0, 250.0),
-    vector2(100.0, 250.0),
+    vector2(100.0, 250.0)
 }, {
     name = "myZone",
-    minZ = 25.0,
-    maxZ = 175.0,
+    minZ = 0,
+    maxZ = 150
 })
 ```
 
@@ -72,53 +97,22 @@ local myZone = PolyZone:Create({
 lib.zones.poly({
     name = 'myZone',
     points = {
-        vec3(100.0, 200.0, 30.0),
-        vec3(150.0, 200.0, 30.0),
-        vec3(150.0, 250.0, 30.0),
-        vec3(100.0, 250.0, 30.0),
+        vec3(100.0, 200.0, 0),
+        vec3(150.0, 200.0, 0),
+        vec3(150.0, 250.0, 0),
+        vec3(100.0, 250.0, 0)
     },
     thickness = 150,
-    debug = true,
+    debug = true
 })
 ```
 
-**vector2 / vector3** — a plain list of coordinates you can drop straight into a table.
+## Not included
 
-## Local development
-
-Requires Node.js 18+.
-
-```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # type-check + production build into dist/
-npm run preview  # serve the production build locally
-```
-
-## Deploying to GitHub Pages
-
-`.github/workflows/deploy.yml` builds and publishes on every push to `main`.
-
-1. Push this repo to GitHub.
-2. Go to **Settings → Pages** and set **Source** to **GitHub Actions**.
-3. Push to `main` — the workflow builds `dist/` and deploys it.
-
-`vite.config.ts` sets `base: './'`, so the build works from a project subpath (`user.github.io/repo/`), a user site, or any other static host — Netlify, Vercel, Cloudflare Pages, or a plain nginx directory. Just serve `dist/`.
-
-## Differences from the FiveM resource
-
-Three features depended on being inside the game and are not present here:
-
-| FiveM feature | Web version |
-|---|---|
-| 3D in-game zone viewer (free-fly camera) | Removed — there's no game client to render it |
-| Auto ground-Z from the world | Removed — enter Ground Z manually per zone |
-| Player position marker / jump to player | Removed — use `Ctrl+F` to jump to coordinates |
-
-Everything else — the map, drawing, templates, import, export, undo/redo, grid, distances — works the same. If you need the in-game preview, keep using the [FiveM resource](https://github.com/Samuels-Development/sd-zonecreator) alongside this site.
+Three features from the original FiveM resource needed the game client and have no browser equivalent: the 3D free-fly zone viewer, automatic ground-Z sampling, and the live player-position marker. Ground Z is entered manually per zone, and `Ctrl+F` covers jumping to a known coordinate.
 
 ## Credits
 
-Original tool by SD ([Samuels-Development](https://github.com/Samuels-Development)). Map rendering by [Leaflet](https://leafletjs.com/), icons by [Lucide](https://lucide.dev/).
+Based on the original tool by SD ([Samuels-Development](https://github.com/Samuels-Development)). Map rendering by [Leaflet](https://leafletjs.com/). Icons are hand-rolled SVG in the style of [Lucide](https://lucide.dev/).
 
-Licensed under the terms in [LICENSE](LICENSE).
+See [LICENSE](LICENSE).

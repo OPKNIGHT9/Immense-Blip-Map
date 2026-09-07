@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zone Creator — visual zone builder for GTA V / FiveM</title>
     <meta
@@ -9,19 +9,242 @@
       content="Draw polygon zones on a GTA V satellite map and export them as PolyZone, ox_lib, vector2 or vector3 code. Runs entirely in your browser."
     />
     <meta name="theme-color" content="#0a0a0c" />
-    <meta property="og:title" content="Zone Creator" />
-    <meta
-      property="og:description"
-      content="Draw polygon zones on a GTA V map and export PolyZone, ox_lib, vec2 or vec3 code."
-    />
-    <meta property="og:type" content="website" />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0c'/%3E%3Cpath d='M8 21 L13 9 L24 13 L19 23 Z' fill='none' stroke='%2322c55e' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Notifications -->
+    <div class="notification-container" id="notifications"></div>
+
+    <div class="zone-creator">
+      <!-- Left panel -->
+      <div class="zone-panel">
+        <div class="zone-panel-header">
+          <div class="zone-panel-title">
+            <span data-icon="layers" data-size="18"></span>
+            <span>Zone Creator</span>
+          </div>
+          <a
+            class="zone-repo-link"
+            href="https://github.com/Samuels-Development/sd-zonecreator"
+            target="_blank"
+            rel="noreferrer"
+            title="View on GitHub"
+          >
+            <span data-icon="github" data-size="16"></span>
+          </a>
+        </div>
+
+        <div class="zone-toolbar">
+          <button class="zone-toolbar-btn" id="btn-snap" title="Snap to Grid (G)">
+            <span data-icon="grid" data-size="16"></span>
+          </button>
+          <button class="zone-toolbar-btn" id="btn-distances" title="Show Distances (D)">
+            <span data-icon="ruler" data-size="16"></span>
+          </button>
+          <button class="zone-toolbar-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+            <span data-icon="undo" data-size="16"></span>
+          </button>
+          <button class="zone-toolbar-btn" id="btn-redo" title="Redo (Ctrl+Y)">
+            <span data-icon="redo" data-size="16"></span>
+          </button>
+          <div class="zone-toolbar-divider"></div>
+          <button class="zone-toolbar-btn" id="btn-import" title="Import Zone">
+            <span data-icon="upload" data-size="16"></span>
+          </button>
+          <button class="zone-toolbar-btn" id="btn-templates" title="Templates">
+            <span data-icon="square" data-size="16"></span>
+          </button>
+          <button class="zone-toolbar-btn" id="btn-search" title="Search Location (Ctrl+F)">
+            <span data-icon="search" data-size="16"></span>
+          </button>
+          <button class="zone-toolbar-btn zone-toolbar-btn-danger" id="btn-clear" title="Clear All Zones">
+            <span data-icon="trash" data-size="16"></span>
+          </button>
+        </div>
+
+        <div class="zone-create-section" id="create-section"></div>
+
+        <div class="zone-list" id="zone-list"></div>
+
+        <div class="zone-instructions">
+          <div class="zone-instruction">
+            <span class="zone-instruction-key">Click</span><span>Add point</span>
+          </div>
+          <div class="zone-instruction">
+            <span class="zone-instruction-key">Right-click</span><span>Delete point</span>
+          </div>
+          <div class="zone-instruction">
+            <span class="zone-instruction-key">Shift+Drag</span><span>Box select</span>
+          </div>
+          <div class="zone-instruction">
+            <span class="zone-instruction-key">G / D</span><span>Grid / Distances</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="zone-map-wrapper">
+        <div class="zone-map" id="map"></div>
+
+        <div class="zone-zoom-indicator">
+          <span data-icon="zoom-in" data-size="14"></span>
+          <span id="zoom-value">100%</span>
+        </div>
+
+        <div class="zone-save-indicator" id="save-indicator" hidden>
+          <span data-icon="save" data-size="12"></span>
+          <span>Saved locally</span>
+        </div>
+
+        <div class="zone-coords-display" id="coords-display" hidden>
+          <span id="coord-x">X: 0</span>
+          <span id="coord-y">Y: 0</span>
+          <span class="snap-indicator" id="snap-indicator" hidden>SNAP</span>
+        </div>
+
+        <div class="zone-active-indicator" id="active-indicator" hidden>
+          <div class="zone-active-color" id="active-color"></div>
+          <span id="active-name"></span>
+        </div>
+
+        <div class="zone-no-active" id="no-active" hidden>
+          <span>Select or create a zone to start placing points</span>
+        </div>
+
+        <div class="zone-selection-actions" id="selection-actions" hidden>
+          <button class="zone-delete-selected-btn" id="btn-delete-selected">
+            <span data-icon="trash" data-size="14"></span>
+            <span id="selection-count">Delete 0 selected</span>
+          </button>
+        </div>
+
+        <!-- Template preview controls -->
+        <div class="zone-preview-controls" id="preview-controls" hidden>
+          <div class="zone-preview-header">
+            <span id="preview-title">Template</span>
+            <button class="zone-preview-hide-btn" id="btn-preview-hide" title="Minimize">
+              <span data-icon="minimize" data-size="14"></span>
+            </button>
+          </div>
+          <div class="zone-preview-info">
+            <div class="zone-preview-coord"><span>X</span><strong id="preview-x">0</strong></div>
+            <div class="zone-preview-coord"><span>Y</span><strong id="preview-y">0</strong></div>
+          </div>
+          <div class="zone-preview-scale">
+            <label>Size <strong id="preview-scale-value">50</strong></label>
+            <input type="range" id="preview-scale" min="5" max="3000" step="1" value="50" />
+          </div>
+          <div class="zone-preview-rotation">
+            <label>Rotation <strong id="preview-rotation-value">0°</strong></label>
+            <input type="range" id="preview-rotation" min="0" max="360" step="1" value="0" />
+          </div>
+          <div class="zone-preview-hint">Drag the centre marker to reposition</div>
+          <div class="zone-preview-actions">
+            <button class="zone-preview-btn confirm" id="btn-preview-confirm">
+              <span data-icon="check" data-size="14"></span><span>Create Zone</span>
+            </button>
+            <button class="zone-preview-btn cancel" id="btn-preview-cancel">
+              <span data-icon="x" data-size="14"></span><span>Cancel</span>
+            </button>
+          </div>
+        </div>
+
+        <button class="zone-preview-minimized" id="preview-minimized" hidden>
+          <span data-icon="square" data-size="14"></span><span>Show template controls</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Import modal -->
+    <div class="zone-modal-overlay" id="modal-import" hidden>
+      <div class="zone-modal">
+        <div class="zone-modal-header">
+          <h3>Import Zone</h3>
+          <button class="zone-modal-close" data-close="modal-import">
+            <span data-icon="x" data-size="16"></span>
+          </button>
+        </div>
+        <div class="zone-modal-content">
+          <p>Paste PolyZone, ox_lib, vector2 or vector3 code below.</p>
+          <textarea id="import-code" rows="10" placeholder="vector2(100.0, 200.0),&#10;vector2(150.0, 200.0),&#10;..."></textarea>
+        </div>
+        <div class="zone-modal-actions">
+          <button class="zone-modal-btn secondary" data-close="modal-import">Cancel</button>
+          <button class="zone-modal-btn primary" id="btn-do-import">Import Zone</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search modal -->
+    <div class="zone-modal-overlay" id="modal-search" hidden>
+      <div class="zone-modal zone-modal-small">
+        <div class="zone-modal-header">
+          <h3>Jump to Location</h3>
+          <button class="zone-modal-close" data-close="modal-search">
+            <span data-icon="x" data-size="16"></span>
+          </button>
+        </div>
+        <div class="zone-modal-content">
+          <div class="zone-search-inputs">
+            <label>X<input type="text" id="search-x" placeholder="0.0" /></label>
+            <label>Y<input type="text" id="search-y" placeholder="0.0" /></label>
+          </div>
+        </div>
+        <div class="zone-modal-actions">
+          <button class="zone-modal-btn secondary" data-close="modal-search">Cancel</button>
+          <button class="zone-modal-btn primary" id="btn-do-search">Jump</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template modal -->
+    <div class="zone-modal-overlay" id="modal-template" hidden>
+      <div class="zone-modal">
+        <div class="zone-modal-header">
+          <h3>Template Shapes</h3>
+          <button class="zone-modal-close" data-close="modal-template">
+            <span data-icon="x" data-size="16"></span>
+          </button>
+        </div>
+        <div class="zone-modal-content">
+          <div class="zone-size-input">
+            <label>Starting size</label>
+            <input type="text" id="template-size" value="50" />
+          </div>
+          <div class="zone-template-grid zone-template-grid-large">
+            <button class="zone-template-btn" data-template="rectangle">
+              <span data-icon="square" data-size="28"></span><span>Rectangle</span>
+            </button>
+            <button class="zone-template-btn" data-template="circle">
+              <span data-icon="circle" data-size="28"></span><span>Circle</span>
+            </button>
+            <button class="zone-template-btn" data-template="triangle">
+              <span data-icon="triangle" data-size="28"></span><span>Triangle</span>
+            </button>
+            <button class="zone-template-btn" data-template="pentagon">
+              <span data-icon="pentagon" data-size="28"></span><span>Pentagon</span>
+            </button>
+            <button class="zone-template-btn" data-template="hexagon">
+              <span data-icon="hexagon" data-size="28"></span><span>Hexagon</span>
+            </button>
+            <button class="zone-template-btn" data-template="star">
+              <span data-icon="star" data-size="28"></span><span>Star</span>
+            </button>
+            <button class="zone-template-btn" data-template="l-shape">
+              <span data-icon="corner" data-size="28"></span><span>L-Shape</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
   </body>
 </html>
