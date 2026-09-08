@@ -32,16 +32,26 @@ What this does **not** protect against: someone who has a valid login can read e
 
 ```js
 {
+  id: 'legion-square',            // needed only if something connects to it
   name: 'Legion Square',
-  category: 'general',       // a key from config.js
+  section: 'general',             // a key from config.js sections
+  subsection: 'retail',           // optional, a key under that section
   x: 195.0,
   y: -934.0,
-  z: 30.7,                   // optional
-  description: 'Central meeting spot.'   // optional
+  z: 30.7,                        // optional, used by vec3 / vec4 / TP
+  heading: 145.0,                 // optional, 0-360, 0 = north
+  icon: 'flag',                   // optional, overrides the section icon
+  color: '#f87171',               // optional, overrides the section colour
+  connections: ['mission-row-pd'],// optional, draws a line to those blips
+  description: 'Central meeting spot.'
 }
 ```
 
-Coordinates are game coordinates. Right-click anywhere on the map to copy the coordinates under your cursor.
+Coordinates are game coordinates. Right-click anywhere on the map to copy the coordinates under your cursor, or press `Ctrl+F` to jump to a pair you already have.
+
+**Headings.** Give a blip a `heading` and it grows an arrow pointing that way, with 0 as north. Game headings run counter-clockwise (90 is west), which the map accounts for. A blip without a heading has its `vec4` button greyed out, since there'd be nothing to put in the fourth slot.
+
+**Connectors.** Set `connections` to an array of other blips' `id` values and a dashed line is drawn between them. Lines only appear when both ends are visible, so hiding a section hides its lines too. The link button on the map toggles all of them; `connectionsOn` in `config.js` sets the starting state.
 
 **Group blips** — these have to be encrypted, so open `tools/admin.html` in your browser (locally, or from the deployed site — it does everything in-page and sends nothing anywhere):
 
@@ -60,24 +70,44 @@ Adding a blip to a group means re-running step 2 with the full list for that gro
 
 The demo file ships with three accounts — `admin` / `changeme`, `officer` / `police123`, `crew` / `crew123`. Replace them before you go live.
 
-## Groups and categories
+## Sections and groups
 
-Both are defined in `data/config.js`.
+These are two different things and it's worth keeping them straight.
 
-**Categories** control the icon and colour of a blip and give visitors filter chips:
+**Sections** organise the sidebar, navbar-style. They're defined in `data/config.js` and can have subsections:
 
 ```js
-categories: {
-  housing: { label: 'Housing', icon: 'house', color: '#f59e0b' },
-  secret:  { label: 'Secret Spots', icon: 'star', color: '#ec4899', hidden: true }
+sections: {
+  business: {
+    label: 'Businesses',
+    icon: 'shop',
+    color: '#3b82f6',
+    subsections: {
+      retail: { label: 'Retail' },
+      food:   { label: 'Food & Drink', color: '#60a5fa' }
+    }
+  }
 }
 ```
 
-`hidden: true` starts that category toggled off. Icon names come from `js/icons.js` — `map-pin`, `house`, `shop`, `car`, `briefcase`, `star`, `flag`, `anchor`, `lock`, `key` are all available, and adding your own is a matter of pasting an SVG path in.
+A blip inherits its icon and colour from its subsection, then its section, unless it sets its own. Clicking a section name toggles its blips off; the caret folds it. `collapsed: true` starts a section folded, `hidden: true` starts it toggled off. Blips that name a section but no subsection get grouped under "Other".
 
-**Groups** just need a label and colour. The key must match the group name used in `blips.js` and in the admin tool. `public` is built in — leave it there.
+Icon names come from `js/icons.js` — `map-pin`, `house`, `shop`, `car`, `briefcase`, `star`, `flag`, `anchor`, `lock`, `key` and more. Adding your own is a matter of pasting an SVG path into that file.
 
-Other switches in `config.js`: `loginEnabled` (set false for a purely public map), `rememberSession`, `copyCoordsOnRightClick`, `showCoords`, `defaultView`, `siteName`, `tagline`, `footerNote`.
+**Groups** are access control — who sees what after signing in. Also in `config.js`, but they only need a label and colour, and the key has to match the group name used in `blips.js` and the admin tool. `public` is built in; leave it there.
+
+## Clicking a blip
+
+The popup has four coordinate formats, with **Coords** selected by default. Click one to switch, then click the value to copy it:
+
+| Button | Output |
+|---|---|
+| Coords | `195.00, -934.00, 30.70` |
+| vec3 | `vector3(195.00, -934.00, 30.70)` |
+| vec4 | `vector4(195.00, -934.00, 30.70, 145.00)` |
+| TP | `/tp 195.00 -934.00 30.70` |
+
+Everything prints as a float. `vec4` is greyed out on blips with no heading. The TP command deliberately leaves the heading off — change the command itself with `tpCommand` in `config.js`, and the number of decimals with `decimals`.
 
 ## Deploying
 
@@ -85,6 +115,16 @@ Other switches in `config.js`: `loginEnabled` (set false for a purely public map
 2. **Settings → Pages → Source → Deploy from a branch**, branch `main`, folder **/ (root)**.
 
 There's nothing to build, so no Actions workflow is needed — and if an old one is still in `.github/workflows`, delete it or it'll keep failing on the missing lockfile.
+
+## Map controls
+
+| Control | What it does |
+|---|---|
+| Link button (top left) | Show or hide connector lines |
+| Crosshair button | Jump to coordinates |
+| `Ctrl+F` | Same jump dialog — accepts `123, -456` or a whole `vector3(...)` pasted into the X field |
+| Right-click the map | Copy the coordinates under the cursor |
+| `Esc` | Close any dialog |
 
 ## Running locally
 
@@ -99,7 +139,7 @@ Then open `http://localhost:8000`. Use a server rather than opening `index.html`
 ```
 index.html              the map page
 css/styles.css          all styling
-js/app.js               map, filters, list, login flow
+js/app.js               map, section tree, list, popups, login flow
 js/crypto.js            key derivation and decryption
 js/icons.js             inline SVG icons
 data/config.js          settings          <- you edit

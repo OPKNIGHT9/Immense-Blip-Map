@@ -1,4 +1,4 @@
-/* Immense Blip Map — read-only blip viewer with optional group logins. */
+/* Immense Blip Map — read-only blip viewer with group logins. */
 (function () {
   'use strict';
 
@@ -24,6 +24,19 @@
     };
   }
 
+  var CONFIG = window.CONFIG || {};
+  var SECTIONS = CONFIG.sections || {};
+  var GROUPS = CONFIG.groups || { public: { label: 'Public', color: '#22c55e' } };
+  var DECIMALS = CONFIG.decimals == null ? 2 : CONFIG.decimals;
+  var DEFAULT_COLOR = '#22c55e';
+  var DEFAULT_ICON = 'map-pin';
+  var SESSION_KEY = 'blipmap:session';
+
+  /* Always prints a decimal point, so 25 becomes "25.00" not "25". */
+  function f(n) {
+    return Number(n || 0).toFixed(DECIMALS);
+  }
+
   function round2(n) {
     return Math.round(n * 100) / 100;
   }
@@ -34,11 +47,6 @@
     });
   }
 
-  var CONFIG = window.CONFIG || {};
-  var CATEGORIES = CONFIG.categories || {};
-  var GROUPS = CONFIG.groups || { public: { label: 'Public', color: '#22c55e' } };
-  var SESSION_KEY = 'blipmap:session';
-
   /* ------------------------------------------------------------------ *
    * State
    * ------------------------------------------------------------------ */
@@ -46,34 +54,90 @@
   var state = {
     user: null,
     blips: [],
+    byId: {},
     unlockedGroups: ['public'],
-    hiddenCategories: {},
+    hiddenSections: {},
+    hiddenSubsections: {},
+    collapsed: {},
     hiddenGroups: {},
     search: '',
-    selectedId: null
+    selectedId: null,
+    showConnections: CONFIG.connectionsOn !== false,
+    formatChoice: {}
   };
 
-  Object.keys(CATEGORIES).forEach(function (key) {
-    if (CATEGORIES[key].hidden) state.hiddenCategories[key] = true;
+  Object.keys(SECTIONS).forEach(function (key) {
+    if (SECTIONS[key].hidden) state.hiddenSections[key] = true;
+    if (SECTIONS[key].collapsed) state.collapsed[key] = true;
   });
 
   var markers = {};
+
+  /* ------------------------------------------------------------------ *
+   * Section helpers
+   * ------------------------------------------------------------------ */
+
+  function sectionOf(key) {
+    return SECTIONS[key] || {};
+  }
+
+  function subsectionOf(sectionKey, subKey) {
+    var sec = sectionOf(sectionKey);
+    return (sec.subsections && sec.subsections[subKey]) || null;
+  }
+
+  /* Blip -> subsection -> section -> default */
+  function resolveStyle(blip) {
+    var sec = sectionOf(blip.section);
+    var sub = subsectionOf(blip.section, blip.subsection);
+    return {
+      color: blip.color || (sub && sub.color) || sec.color || DEFAULT_COLOR,
+      icon: blip.icon || (sub && sub.icon) || sec.icon || DEFAULT_ICON
+    };
+  }
+
+  function sectionPath(blip) {
+    var sec = sectionOf(blip.section);
+    var sub = subsectionOf(blip.section, blip.subsection);
+    var label = sec.label || blip.section || 'Uncategorised';
+    return sub ? label + ' / ' + (sub.label || blip.subsection) : label;
+  }
 
   /* ------------------------------------------------------------------ *
    * Blip loading
    * ------------------------------------------------------------------ */
 
   function normalise(blip, group, index) {
+    var heading = blip.heading;
+    if (heading === '' || heading === undefined) heading = null;
+    if (heading !== null) {
+      heading = Number(heading);
+      if (isNaN(heading)) heading = null;
+      else heading = ((heading % 360) + 360) % 360;
+    }
+
     return {
-      id: group + '-' + index,
+      id: blip.id || group + '-' + index,
       name: blip.name || 'Unnamed',
-      category: CATEGORIES[blip.category] ? blip.category : Object.keys(CATEGORIES)[0],
+      section: SECTIONS[blip.section] ? blip.section : Object.keys(SECTIONS)[0],
+      subsection: blip.subsection || null,
+      icon: blip.icon || null,
+      color: blip.color || null,
       description: blip.description || '',
       x: Number(blip.x) || 0,
       y: Number(blip.y) || 0,
       z: blip.z == null ? null : Number(blip.z),
+      heading: heading,
+      connections: Array.isArray(blip.connections) ? blip.connections.slice() : [],
       group: group
     };
+  }
+
+  function reindex() {
+    state.byId = {};
+    state.blips.forEach(function (b) {
+      state.byId[b.id] = b;
+    });
   }
 
   function loadPublicBlips() {
@@ -81,6 +145,7 @@
     state.blips = source.map(function (b, i) {
       return normalise(b, 'public', i);
     });
+    reindex();
   }
 
   function addGroupBlips(group, list) {
@@ -91,34 +156,29 @@
     list.forEach(function (b, i) {
       state.blips.push(normalise(b, group, i));
     });
+    reindex();
   }
 
-  /* Groups stored as plain text in blips.js need no key — they're visible to
-   * anyone reading the file, and are only useful while you're setting things
-   * up. Encrypted groups are the ones that actually stay hidden. */
   function loadPlaintextGroups() {
     var groups = (window.BLIPS && window.BLIPS.groups) || {};
     Object.keys(groups).forEach(function (name) {
-      if (groups[name] && Array.isArray(groups[name].blips) && groups[name].plaintextPublic) {
-        addGroupBlips(name, groups[name].blips);
+      var entry = groups[name];
+      if (entry && Array.isArray(entry.blips) && entry.plaintextPublic) {
+        addGroupBlips(name, entry.blips);
       }
     });
   }
 
   function unlockGroupsFor(session) {
     var groups = (window.BLIPS && window.BLIPS.groups) || {};
-    var names = Object.keys(session.groups);
-
-    return names.reduce(function (chain, name) {
+    return Object.keys(session.groups).reduce(function (chain, name) {
       var entry = groups[name];
       if (!entry) return chain;
-
       if (Array.isArray(entry.blips)) {
         addGroupBlips(name, entry.blips);
         return chain;
       }
       if (!entry.encrypted) return chain;
-
       return chain
         .then(function () {
           return window.ZCrypto.decryptText(session.groups[name], entry.encrypted);
@@ -158,20 +218,53 @@
   var view = CONFIG.defaultView || { x: 0, y: 0, zoom: -1 };
   map.setView(gtaToLatLng(view.x, view.y), view.zoom == null ? -1 : view.zoom);
 
+  var connectionLayer = L.layerGroup().addTo(map);
   var blipLayer = L.layerGroup().addTo(map);
+  var pingLayer = L.layerGroup().addTo(map);
+
+  function isVisible(blip) {
+    if (state.unlockedGroups.indexOf(blip.group) === -1) return false;
+    if (state.hiddenGroups[blip.group]) return false;
+    if (state.hiddenSections[blip.section]) return false;
+    /* Blips with no subsection sit in the "section/" bucket, shown as "Other". */
+    var subKey = blip.section + '/' + (blip.subsection || '');
+    if (state.hiddenSubsections[subKey]) return false;
+    var term = state.search.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      blip.name.toLowerCase().indexOf(term) !== -1 ||
+      blip.description.toLowerCase().indexOf(term) !== -1
+    );
+  }
 
   function visibleBlips() {
-    var term = state.search.trim().toLowerCase();
-    return state.blips.filter(function (b) {
-      if (state.hiddenCategories[b.category]) return false;
-      if (state.hiddenGroups[b.group]) return false;
-      if (state.unlockedGroups.indexOf(b.group) === -1) return false;
-      if (!term) return true;
-      return (
-        b.name.toLowerCase().indexOf(term) !== -1 ||
-        b.description.toLowerCase().indexOf(term) !== -1
-      );
-    });
+    return state.blips.filter(isVisible);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Markers
+   * ------------------------------------------------------------------ */
+
+  var ARROW_SVG =
+    '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">' +
+    '<path d="M12 2 18 14H6Z"/></svg>';
+
+  function markerHtml(blip, style, isSelected) {
+    var arrow = '';
+    if (blip.heading !== null) {
+      /* Game headings run counter-clockwise from north, screen rotation
+       * runs clockwise, so the sign flips. */
+      arrow =
+        '<div class="blip-heading" style="transform: rotate(' + -blip.heading + 'deg); color:' + style.color + '">' +
+        '<span class="blip-heading-arrow">' + ARROW_SVG + '</span></div>';
+    }
+    return (
+      '<div class="blip-marker-inner' + (isSelected ? ' selected' : '') + '">' +
+      arrow +
+      '<div class="blip-pin" style="background:' + style.color + '">' +
+      window.Icons.icon(style.icon, 14) +
+      '</div></div>'
+    );
   }
 
   function renderMarkers() {
@@ -179,25 +272,26 @@
     markers = {};
 
     visibleBlips().forEach(function (blip) {
-      var cat = CATEGORIES[blip.category] || {};
-      var color = cat.color || '#22c55e';
+      var style = resolveStyle(blip);
       var isSelected = state.selectedId === blip.id;
 
       var marker = L.marker(gtaToLatLng(blip.x, blip.y), {
         icon: L.divIcon({
-          className: 'blip-marker' + (isSelected ? ' selected' : ''),
-          html:
-            '<div class="blip-pin" style="background:' +
-            color +
-            '">' +
-            window.Icons.icon(cat.icon || 'map-pin', 14) +
-            '</div>',
-          iconSize: [30, 30],
-          iconAnchor: [15, 15]
+          className: 'blip-marker',
+          html: markerHtml(blip, style, isSelected),
+          iconSize: [44, 44],
+          iconAnchor: [22, 22]
         })
       }).addTo(blipLayer);
 
-      marker.bindPopup(popupHtml(blip), { className: 'blip-popup', closeButton: true, offset: [0, -8] });
+      marker.bindPopup(popupHtml(blip), {
+        className: 'blip-popup',
+        closeButton: true,
+        offset: [0, -14],
+        minWidth: 232,
+        autoPan: true
+      });
+
       marker.on('click', function () {
         state.selectedId = blip.id;
         renderList();
@@ -205,86 +299,254 @@
 
       markers[blip.id] = marker;
     });
+
+    renderConnections();
+  }
+
+  function renderConnections() {
+    connectionLayer.clearLayers();
+    if (!state.showConnections) return;
+
+    var drawn = {};
+
+    visibleBlips().forEach(function (blip) {
+      blip.connections.forEach(function (targetId) {
+        var target = state.byId[targetId];
+        if (!target || !isVisible(target)) return;
+
+        var pairKey = [blip.id, targetId].sort().join('::');
+        if (drawn[pairKey]) return;
+        drawn[pairKey] = true;
+
+        L.polyline([gtaToLatLng(blip.x, blip.y), gtaToLatLng(target.x, target.y)], {
+          color: resolveStyle(blip).color,
+          weight: 2,
+          opacity: 0.55,
+          dashArray: '6, 6',
+          interactive: false
+        }).addTo(connectionLayer);
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Popup with the coord-format menu
+   * ------------------------------------------------------------------ */
+
+  var FORMATS = ['coords', 'vec3', 'vec4', 'tp'];
+  var FORMAT_LABELS = { coords: 'Coords', vec3: 'vec3', vec4: 'vec4', tp: 'TP' };
+
+  function formatValue(blip, format) {
+    var z = blip.z == null ? 0 : blip.z;
+    switch (format) {
+      case 'vec3':
+        return 'vector3(' + f(blip.x) + ', ' + f(blip.y) + ', ' + f(z) + ')';
+      case 'vec4':
+        if (blip.heading === null) return '';
+        return 'vector4(' + f(blip.x) + ', ' + f(blip.y) + ', ' + f(z) + ', ' + f(blip.heading) + ')';
+      case 'tp':
+        /* Heading is deliberately left off the teleport command. */
+        return (CONFIG.tpCommand || '/tp') + ' ' + f(blip.x) + ' ' + f(blip.y) + ' ' + f(z);
+      default:
+        return f(blip.x) + ', ' + f(blip.y) + ', ' + f(z);
+    }
   }
 
   function popupHtml(blip) {
-    var cat = CATEGORIES[blip.category] || {};
+    var style = resolveStyle(blip);
     var grp = GROUPS[blip.group] || {};
-    var coords = blip.x + ', ' + blip.y + (blip.z == null ? '' : ', ' + blip.z);
+    var chosen = state.formatChoice[blip.id] || 'coords';
+    if (chosen === 'vec4' && blip.heading === null) chosen = 'coords';
+
+    var buttons = FORMATS.map(function (key) {
+      var disabled = key === 'vec4' && blip.heading === null;
+      return (
+        '<button class="fmt-btn' + (key === chosen ? ' active' : '') + '"' +
+        ' data-blip="' + escapeHtml(blip.id) + '" data-format="' + key + '"' +
+        (disabled ? ' disabled title="This blip has no heading"' : '') +
+        '>' + FORMAT_LABELS[key] + '</button>'
+      );
+    }).join('');
+
     return (
       '<div class="blip-popup-inner">' +
-      '<div class="blip-popup-head"><span class="blip-dot" style="background:' +
-      (cat.color || '#22c55e') +
-      '"></span><strong>' +
-      escapeHtml(blip.name) +
-      '</strong></div>' +
+      '<div class="blip-popup-head">' +
+      '<span class="blip-dot" style="background:' + style.color + '"></span>' +
+      '<strong>' + escapeHtml(blip.name) + '</strong>' +
+      '</div>' +
       (blip.description ? '<p>' + escapeHtml(blip.description) + '</p>' : '') +
       '<div class="blip-popup-meta">' +
-      '<span>' + escapeHtml(cat.label || blip.category) + '</span>' +
+      '<span>' + escapeHtml(sectionPath(blip)) + '</span>' +
+      (blip.heading !== null ? '<span class="blip-heading-tag">' + f(blip.heading) + '&deg;</span>' : '') +
       (blip.group !== 'public'
         ? '<span class="blip-group-tag" style="color:' + (grp.color || '#888') + '">' +
-          escapeHtml(grp.label || blip.group) +
-          '</span>'
+          escapeHtml(grp.label || blip.group) + '</span>'
         : '') +
       '</div>' +
-      '<button class="blip-copy-btn" data-coords="' + escapeHtml(coords) + '">' +
+      '<div class="fmt-row">' + buttons + '</div>' +
+      '<button class="fmt-value" data-copy="' + escapeHtml(formatValue(blip, chosen)) + '" title="Click to copy">' +
+      '<span>' + escapeHtml(formatValue(blip, chosen)) + '</span>' +
       window.Icons.icon('copy', 12) +
-      '<span>' + escapeHtml(coords) + '</span></button>' +
+      '</button>' +
       '</div>'
     );
   }
 
+  /* Popups are rebuilt as HTML strings, so wire them by delegation. */
+  document.addEventListener('click', function (e) {
+    var fmtBtn = e.target.closest && e.target.closest('.fmt-btn');
+    if (fmtBtn && !fmtBtn.disabled) {
+      var id = fmtBtn.getAttribute('data-blip');
+      state.formatChoice[id] = fmtBtn.getAttribute('data-format');
+      var blip = state.byId[id];
+      var marker = markers[id];
+      if (blip && marker && marker.getPopup()) {
+        marker.setPopupContent(popupHtml(blip));
+      }
+      return;
+    }
+
+    var copyBtn = e.target.closest && e.target.closest('.fmt-value');
+    if (copyBtn) {
+      var text = copyBtn.getAttribute('data-copy');
+      if (!text) return;
+      copyText(text);
+      toast('Copied to clipboard');
+    }
+  });
+
   /* ------------------------------------------------------------------ *
-   * Sidebar
+   * Sidebar — section tree
    * ------------------------------------------------------------------ */
 
-  var filterEl = document.getElementById('filters');
+  var navEl = document.getElementById('nav-tree');
   var listEl = document.getElementById('blip-list');
   var countEl = document.getElementById('blip-count');
 
-  function renderFilters() {
-    var html = '<div class="filter-section"><div class="filter-title">Categories</div><div class="filter-chips">';
-
-    Object.keys(CATEGORIES).forEach(function (key) {
-      var cat = CATEGORIES[key];
-      var count = state.blips.filter(function (b) {
-        return b.category === key && state.unlockedGroups.indexOf(b.group) !== -1;
-      }).length;
-      var off = state.hiddenCategories[key];
-      html +=
-        '<button class="filter-chip' + (off ? ' off' : '') + '" data-category="' + key + '" ' +
-        'style="--chip-color:' + cat.color + '">' +
-        '<span class="chip-dot" style="background:' + cat.color + '"></span>' +
-        escapeHtml(cat.label) + '<span class="chip-count">' + count + '</span></button>';
+  function accessibleBlips() {
+    return state.blips.filter(function (b) {
+      return state.unlockedGroups.indexOf(b.group) !== -1;
     });
+  }
 
-    html += '</div></div>';
+  function countIn(sectionKey, subKey) {
+    return accessibleBlips().filter(function (b) {
+      if (b.section !== sectionKey) return false;
+      if (subKey === undefined) return true;
+      return b.subsection === subKey;
+    }).length;
+  }
+
+  function renderNav() {
+    var html = '';
+
+    Object.keys(SECTIONS).forEach(function (key) {
+      var sec = SECTIONS[key];
+      var subKeys = sec.subsections ? Object.keys(sec.subsections) : [];
+      var total = countIn(key);
+      var off = !!state.hiddenSections[key];
+      var isCollapsed = !!state.collapsed[key];
+      var color = sec.color || DEFAULT_COLOR;
+
+      html += '<div class="nav-section' + (off ? ' off' : '') + '">';
+      html += '<div class="nav-row">';
+
+      if (subKeys.length) {
+        html +=
+          '<button class="nav-caret' + (isCollapsed ? '' : ' open') + '" data-toggle-collapse="' + key + '"' +
+          ' title="Expand or fold">' + window.Icons.icon('chevron-right', 13) + '</button>';
+      } else {
+        html += '<span class="nav-caret-spacer"></span>';
+      }
+
+      html +=
+        '<button class="nav-label" data-toggle-section="' + key + '">' +
+        '<span class="nav-icon" style="color:' + color + '">' +
+        window.Icons.icon(sec.icon || DEFAULT_ICON, 14) + '</span>' +
+        '<span class="nav-name">' + escapeHtml(sec.label || key) + '</span>' +
+        '<span class="nav-count">' + total + '</span>' +
+        '</button>';
+
+      html += '</div>';
+
+      if (subKeys.length && !isCollapsed) {
+        html += '<div class="nav-children">';
+        subKeys.forEach(function (subKey) {
+          var sub = sec.subsections[subKey];
+          var subOff = !!state.hiddenSubsections[key + '/' + subKey];
+          html +=
+            '<button class="nav-child' + (subOff ? ' off' : '') + '"' +
+            ' data-toggle-sub="' + key + '/' + subKey + '">' +
+            '<span class="nav-child-dot" style="background:' + (sub.color || color) + '"></span>' +
+            '<span class="nav-name">' + escapeHtml(sub.label || subKey) + '</span>' +
+            '<span class="nav-count">' + countIn(key, subKey) + '</span>' +
+            '</button>';
+        });
+
+        var looseCount = countIn(key, null);
+        if (looseCount) {
+          html +=
+            '<button class="nav-child' + (state.hiddenSubsections[key + '/'] ? ' off' : '') + '"' +
+            ' data-toggle-sub="' + key + '/">' +
+            '<span class="nav-child-dot" style="background:' + color + '"></span>' +
+            '<span class="nav-name">Other</span>' +
+            '<span class="nav-count">' + looseCount + '</span></button>';
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+    });
 
     var extraGroups = state.unlockedGroups.filter(function (g) {
       return g !== 'public';
     });
 
     if (extraGroups.length) {
-      html += '<div class="filter-section"><div class="filter-title">Groups</div><div class="filter-chips">';
-      html += groupChip('public');
-      extraGroups.forEach(function (g) {
-        html += groupChip(g);
+      html += '<div class="nav-groups"><div class="nav-groups-title">Access groups</div><div class="filter-chips">';
+      ['public'].concat(extraGroups).forEach(function (name) {
+        var grp = GROUPS[name] || { label: name, color: '#888' };
+        var count = accessibleBlips().filter(function (b) {
+          return b.group === name;
+        }).length;
+        html +=
+          '<button class="filter-chip' + (state.hiddenGroups[name] ? ' off' : '') + '" data-group="' + name + '">' +
+          '<span class="chip-dot" style="background:' + grp.color + '"></span>' +
+          escapeHtml(grp.label) + '<span class="chip-count">' + count + '</span></button>';
       });
       html += '</div></div>';
     }
 
-    filterEl.innerHTML = html;
+    navEl.innerHTML = html;
 
-    filterEl.querySelectorAll('[data-category]').forEach(function (btn) {
+    navEl.querySelectorAll('[data-toggle-collapse]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var key = btn.getAttribute('data-category');
-        if (state.hiddenCategories[key]) delete state.hiddenCategories[key];
-        else state.hiddenCategories[key] = true;
+        var key = btn.getAttribute('data-toggle-collapse');
+        if (state.collapsed[key]) delete state.collapsed[key];
+        else state.collapsed[key] = true;
+        renderNav();
+      });
+    });
+
+    navEl.querySelectorAll('[data-toggle-section]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-toggle-section');
+        if (state.hiddenSections[key]) delete state.hiddenSections[key];
+        else state.hiddenSections[key] = true;
         renderAll();
       });
     });
 
-    filterEl.querySelectorAll('[data-group]').forEach(function (btn) {
+    navEl.querySelectorAll('[data-toggle-sub]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-toggle-sub');
+        if (state.hiddenSubsections[key]) delete state.hiddenSubsections[key];
+        else state.hiddenSubsections[key] = true;
+        renderAll();
+      });
+    });
+
+    navEl.querySelectorAll('[data-group]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var key = btn.getAttribute('data-group');
         if (state.hiddenGroups[key]) delete state.hiddenGroups[key];
@@ -294,18 +556,9 @@
     });
   }
 
-  function groupChip(name) {
-    var grp = GROUPS[name] || { label: name, color: '#888' };
-    var count = state.blips.filter(function (b) {
-      return b.group === name;
-    }).length;
-    var off = state.hiddenGroups[name];
-    return (
-      '<button class="filter-chip' + (off ? ' off' : '') + '" data-group="' + name + '">' +
-      '<span class="chip-dot" style="background:' + grp.color + '"></span>' +
-      escapeHtml(grp.label) + '<span class="chip-count">' + count + '</span></button>'
-    );
-  }
+  /* ------------------------------------------------------------------ *
+   * Sidebar — list
+   * ------------------------------------------------------------------ */
 
   function renderList() {
     var blips = visibleBlips().sort(function (a, b) {
@@ -316,29 +569,28 @@
 
     if (!blips.length) {
       listEl.innerHTML =
-        '<div class="list-empty">' +
-        window.Icons.icon('map-pin', 28) +
-        '<span>No locations match</span></div>';
+        '<div class="list-empty">' + window.Icons.icon('map-pin', 28) + '<span>No locations match</span></div>';
       return;
     }
 
     var html = '';
     blips.forEach(function (blip) {
-      var cat = CATEGORIES[blip.category] || {};
+      var style = resolveStyle(blip);
       var grp = GROUPS[blip.group] || {};
       html +=
-        '<button class="blip-row' + (state.selectedId === blip.id ? ' active' : '') + '" data-id="' + blip.id + '">' +
-        '<span class="blip-row-icon" style="background:' + (cat.color || '#22c55e') + '22;color:' + (cat.color || '#22c55e') + '">' +
-        window.Icons.icon(cat.icon || 'map-pin', 14) +
-        '</span>' +
+        '<button class="blip-row' + (state.selectedId === blip.id ? ' active' : '') + '" data-id="' + escapeHtml(blip.id) + '">' +
+        '<span class="blip-row-icon" style="background:' + style.color + '22;color:' + style.color + '">' +
+        window.Icons.icon(style.icon, 14) + '</span>' +
         '<span class="blip-row-text">' +
-        '<span class="blip-row-name">' + escapeHtml(blip.name) + '</span>' +
-        '<span class="blip-row-sub">' + escapeHtml(cat.label || blip.category) +
+        '<span class="blip-row-name">' + escapeHtml(blip.name) +
+        (blip.heading !== null ? '<span class="row-heading" title="Heading">&#9650;</span>' : '') +
+        '</span>' +
+        '<span class="blip-row-sub">' + escapeHtml(sectionPath(blip)) +
         (blip.group !== 'public'
           ? ' &middot; <span style="color:' + (grp.color || '#888') + '">' + escapeHtml(grp.label || blip.group) + '</span>'
           : '') +
         '</span></span>' +
-        '<span class="blip-row-coords">' + blip.x + ', ' + blip.y + '</span>' +
+        '<span class="blip-row-coords">' + round2(blip.x) + ', ' + round2(blip.y) + '</span>' +
         '</button>';
     });
 
@@ -346,19 +598,20 @@
 
     listEl.querySelectorAll('[data-id]').forEach(function (row) {
       row.addEventListener('click', function () {
-        var id = row.getAttribute('data-id');
-        var blip = state.blips.filter(function (b) {
-          return b.id === id;
-        })[0];
+        var blip = state.byId[row.getAttribute('data-id')];
         if (!blip) return;
-        state.selectedId = id;
+        state.selectedId = blip.id;
         map.setView(gtaToLatLng(blip.x, blip.y), Math.max(map.getZoom(), 1), { animate: true });
-        if (markers[id]) markers[id].openPopup();
         renderList();
         renderMarkers();
+        if (markers[blip.id]) markers[blip.id].openPopup();
       });
     });
   }
+
+  /* ------------------------------------------------------------------ *
+   * Account
+   * ------------------------------------------------------------------ */
 
   function renderAccount() {
     var box = document.getElementById('account');
@@ -381,24 +634,22 @@
         '<span class="account-icon">' + window.Icons.icon('user', 14) + '</span>' +
         '<span class="account-text"><strong>' + escapeHtml(state.user.label) + '</strong>' +
         '<span>' + (groupNames.length ? escapeHtml(groupNames.join(', ')) : 'No extra groups') + '</span></span>' +
-        '<button class="account-btn" id="btn-logout" title="Sign out">' +
-        window.Icons.icon('log-out', 14) + '</button></div>';
+        '<button class="account-btn" id="btn-logout" title="Sign out">' + window.Icons.icon('log-out', 14) + '</button></div>';
       document.getElementById('btn-logout').addEventListener('click', logout);
     } else {
       box.innerHTML =
         '<button class="login-btn" id="btn-login">' +
         window.Icons.icon('log-in', 14) + '<span>Member sign in</span></button>';
-      document.getElementById('btn-login').addEventListener('click', function () {
-        openLogin();
-      });
+      document.getElementById('btn-login').addEventListener('click', openLogin);
     }
   }
 
   function renderAll() {
-    renderFilters();
+    renderNav();
     renderList();
     renderMarkers();
     renderAccount();
+    document.getElementById('btn-connections').classList.toggle('active', state.showConnections);
   }
 
   /* ------------------------------------------------------------------ *
@@ -481,15 +732,9 @@
     toast('Signed out');
   }
 
-  /* Session storage keeps the decrypted blips for the tab's lifetime so a
-   * refresh doesn't force a re-login. Closing the tab clears it. */
   function saveSession(session) {
     try {
-      var payload = {
-        username: session.username,
-        label: session.label,
-        groups: {}
-      };
+      var payload = { username: session.username, label: session.label, groups: {} };
       state.unlockedGroups.forEach(function (g) {
         if (g === 'public') return;
         payload.groups[g] = state.blips.filter(function (b) {
@@ -519,7 +764,55 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Misc UI
+   * Jump to coordinates
+   * ------------------------------------------------------------------ */
+
+  var jumpModal = document.getElementById('modal-jump');
+
+  function openJump() {
+    jumpModal.hidden = false;
+    setTimeout(function () {
+      document.getElementById('jump-x').focus();
+      document.getElementById('jump-x').select();
+    }, 50);
+  }
+
+  /* Accepts "123, -456", "vector3(1.0, 2.0, 3.0)" or two separate fields. */
+  function parseCoordInput(a, b) {
+    var combined = (a + ' ' + b).trim();
+    var nums = combined.match(/-?\d+(?:\.\d+)?/g);
+    if (!nums || nums.length < 2) return null;
+    return { x: parseFloat(nums[0]), y: parseFloat(nums[1]) };
+  }
+
+  function submitJump() {
+    var parsed = parseCoordInput(
+      document.getElementById('jump-x').value,
+      document.getElementById('jump-y').value
+    );
+    if (!parsed) {
+      toast('Enter valid X and Y coordinates');
+      return;
+    }
+    jumpModal.hidden = true;
+    map.setView(gtaToLatLng(parsed.x, parsed.y), Math.max(map.getZoom(), 1), { animate: true });
+    dropPing(parsed.x, parsed.y);
+    toast('Jumped to ' + round2(parsed.x) + ', ' + round2(parsed.y));
+  }
+
+  function dropPing(x, y) {
+    pingLayer.clearLayers();
+    var ping = L.marker(gtaToLatLng(x, y), {
+      interactive: false,
+      icon: L.divIcon({ className: 'coord-ping', html: '<div></div>', iconSize: [28, 28], iconAnchor: [14, 14] })
+    }).addTo(pingLayer);
+    setTimeout(function () {
+      pingLayer.removeLayer(ping);
+    }, 4000);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Misc
    * ------------------------------------------------------------------ */
 
   function toast(message) {
@@ -571,6 +864,22 @@
     renderMarkers();
   });
 
+  document.getElementById('btn-connections').addEventListener('click', function () {
+    state.showConnections = !state.showConnections;
+    document.getElementById('btn-connections').classList.toggle('active', state.showConnections);
+    renderConnections();
+    toast(state.showConnections ? 'Connectors shown' : 'Connectors hidden');
+  });
+
+  document.getElementById('btn-jump').addEventListener('click', openJump);
+  document.getElementById('btn-do-jump').addEventListener('click', submitJump);
+
+  ['jump-x', 'jump-y'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') submitJump();
+    });
+  });
+
   document.getElementById('btn-do-login').addEventListener('click', submitLogin);
   document.getElementById('login-pass').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') submitLogin();
@@ -585,20 +894,22 @@
     });
   });
 
-  loginModal.addEventListener('mousedown', function (e) {
-    if (e.target === loginModal) closeLogin();
+  [loginModal, jumpModal].forEach(function (overlay) {
+    overlay.addEventListener('mousedown', function (e) {
+      if (e.target === overlay) overlay.hidden = true;
+    });
   });
 
   window.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeLogin();
-  });
-
-  /* Copy button inside marker popups. */
-  document.addEventListener('click', function (e) {
-    var btn = e.target.closest && e.target.closest('.blip-copy-btn');
-    if (!btn) return;
-    copyText(btn.getAttribute('data-coords'));
-    toast('Coordinates copied');
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      openJump();
+      return;
+    }
+    if (e.key === 'Escape') {
+      loginModal.hidden = true;
+      jumpModal.hidden = true;
+    }
   });
 
   var coordsEl = document.getElementById('coords');
@@ -616,8 +927,8 @@
   if (CONFIG.copyCoordsOnRightClick) {
     map.on('contextmenu', function (e) {
       var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
-      copyText(round2(gta.x) + ', ' + round2(gta.y));
-      toast('Copied ' + round2(gta.x) + ', ' + round2(gta.y));
+      copyText(f(gta.x) + ', ' + f(gta.y));
+      toast('Copied ' + f(gta.x) + ', ' + f(gta.y));
     });
   }
 
@@ -627,6 +938,7 @@
 
   document.title = CONFIG.siteName || 'Blip Map';
   document.getElementById('site-name').textContent = CONFIG.siteName || 'Blip Map';
+
   var taglineEl = document.getElementById('tagline');
   if (CONFIG.tagline) taglineEl.textContent = CONFIG.tagline;
   else taglineEl.hidden = true;

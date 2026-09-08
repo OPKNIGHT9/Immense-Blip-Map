@@ -43,7 +43,9 @@
         <div class="card">
           <h2>2. Encrypt a group's blips</h2>
           <p>
-            Paste the blips as a JSON array. The output goes into the <code>groups</code> section of
+            Paste the blips as a JSON array. Optional per-blip fields: <code>heading</code> (0-360, 0 = north),
+            <code>icon</code>, <code>color</code>, <code>subsection</code>, and <code>connections</code>
+            (an array of blip <code>id</code>s). The output goes into the <code>groups</code> section of
             <code>data/blips.js</code>.
           </p>
           <label class="field">
@@ -56,14 +58,29 @@
           </label>
           <label class="field">
             <span>Blips (JSON array)</span>
-            <textarea id="enc-blips" rows="10">[
+            <textarea id="enc-blips" rows="12">[
   {
+    "id": "safehouse-north",
     "name": "Safehouse",
-    "category": "housing",
+    "section": "housing",
+    "subsection": "apartments",
     "x": 1234.5,
     "y": -567.8,
     "z": 25.0,
+    "heading": 180.0,
+    "color": "#ef4444",
+    "connections": ["chop-shop-east"],
     "description": "Back entrance only."
+  },
+  {
+    "id": "chop-shop-east",
+    "name": "Chop Shop",
+    "section": "transport",
+    "subsection": "garages",
+    "icon": "car",
+    "x": -336.0,
+    "y": -136.0,
+    "z": 39.0
   }
 ]</textarea>
           </label>

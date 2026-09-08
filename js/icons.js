@@ -15,6 +15,8 @@
     key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3"/><path d="m17 5 3 3"/>',
     flag: '<path d="M4 21V4"/><path d="M4 5h11l-1.5 3L15 11H4"/>',
     anchor: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14"/><path d="M5 12a7 7 0 0 0 14 0"/><path d="M3 12h4M17 12h4"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+    crosshair: '<circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
     layers:
       '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
     github:

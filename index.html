@@ -36,7 +36,7 @@
           <input type="text" id="search" placeholder="Search locations..." autocomplete="off" />
         </div>
 
-        <div class="filters" id="filters"></div>
+        <div class="nav-tree" id="nav-tree"></div>
 
         <div class="list-header">
           <span id="blip-count">0 locations</span>
@@ -52,6 +52,16 @@
 
       <main class="map-wrapper">
         <div class="map" id="map"></div>
+
+        <div class="map-controls">
+          <button class="map-btn" id="btn-connections" title="Toggle connector lines">
+            <span data-icon="link" data-size="15"></span>
+          </button>
+          <button class="map-btn" id="btn-jump" title="Jump to coordinates (Ctrl+F)">
+            <span data-icon="crosshair" data-size="15"></span>
+          </button>
+        </div>
+
         <div class="coords" id="coords" hidden></div>
       </main>
     </div>
@@ -79,6 +89,34 @@
         <div class="modal-actions">
           <button class="btn secondary" data-close="modal-login">Cancel</button>
           <button class="btn primary" id="btn-do-login">Sign in</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-jump" hidden>
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>Jump to coordinates</h3>
+          <button class="modal-close" data-close="modal-jump">
+            <span data-icon="x" data-size="16"></span>
+          </button>
+        </div>
+        <div class="modal-content">
+          <p>Paste a pair of coordinates, or a whole vector3 into the X field.</p>
+          <div class="field-row">
+            <label class="field">
+              <span>X</span>
+              <input type="text" id="jump-x" placeholder="195.0" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Y</span>
+              <input type="text" id="jump-y" placeholder="-934.0" autocomplete="off" />
+            </label>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" data-close="modal-jump">Cancel</button>
+          <button class="btn primary" id="btn-do-jump">Jump</button>
         </div>
       </div>
     </div>
