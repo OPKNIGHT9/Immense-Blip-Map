@@ -100,7 +100,7 @@ Selecting any member lights the whole group. Group connectors work inside encryp
 
 `[x, y]` pairs work as well as `{x, y}` objects. The marker sits at the polygon's centroid unless you also give `x` and `y` to pin it somewhere specific — and that anchor is what the coordinate buttons and any connectors use. Zones behave like any other blip otherwise: they filter, search, connect and appear in the list.
 
-Selecting a zone shows numbered markers on each of its vertices, and lists those points in the popup. Clicking a point copies its coordinates and pans to it.
+Zones have no centre pin — you click the shape itself. Selecting one shows numbered markers on each vertex and lists the points in the popup; clicking a point copies its coordinates and pans there, and clicking a vertex marker gives you coords, `vector3(...)` and a TP command for it. A point uses its own `z` if you give it one (`{ x, y, z }` or `[x, y, z]`), otherwise the zone's.
 
 **Group blips** — these have to be encrypted, so open `tools/admin.html` in your browser (locally, or from the deployed site — it does everything in-page and sends nothing anywhere):
 
@@ -177,7 +177,9 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 | Right-click the map | Copy the coordinates under the cursor |
 | Zoom box (bottom right) | Click the percentage to type an exact zoom, 25%–1600% |
 | Divider in the sidebar | Drag to resize the section tree against the location list; double-click to reset |
-| `Esc` | Close any dialog |
+| `Esc` | Close any dialog, or clear the current selection |
+| Click bare map | Clear the current selection |
+| Click the highlighted row again | Clear the current selection |
 
 ## Running locally
 

@@ -128,11 +128,14 @@
       else heading = ((heading % 360) + 360) % 360;
     }
 
+    var zoneZ = blip.z == null ? 0 : Number(blip.z);
     var points = Array.isArray(blip.points)
       ? blip.points
           .map(function (p) {
-            if (Array.isArray(p)) return { x: Number(p[0]), y: Number(p[1]) };
-            return { x: Number(p.x), y: Number(p.y) };
+            if (Array.isArray(p)) {
+              return { x: Number(p[0]), y: Number(p[1]), z: p[2] == null ? zoneZ : Number(p[2]) };
+            }
+            return { x: Number(p.x), y: Number(p.y), z: p.z == null ? zoneZ : Number(p.z) };
           })
           .filter(function (p) {
             return !isNaN(p.x) && !isNaN(p.y);
@@ -351,19 +354,23 @@
         })
       }).addTo(vertexLayer);
 
+      var coords = f(point.x) + ', ' + f(point.y) + ', ' + f(point.z);
+      var vec3 = 'vector3(' + coords + ')';
+      var tpCmd = (CONFIG.tpCommand || '/tp') + ' ' + f(point.x) + ' ' + f(point.y) + ' ' + f(point.z);
+
       vertex.bindPopup(
         '<div class="blip-popup-inner">' +
           '<div class="blip-popup-head">' +
           '<span class="blip-dot" style="background:' + style.color + '"></span>' +
           '<strong>' + escapeHtml(blip.name) + ' &mdash; point ' + (index + 1) + '</strong></div>' +
-          '<button class="fmt-value" data-copy="' + f(point.x) + ', ' + f(point.y) + '">' +
-          '<span>' + f(point.x) + ', ' + f(point.y) + '</span>' +
-          window.Icons.icon('copy', 12) + '</button>' +
-          '<button class="fmt-value" data-copy="vector2(' + f(point.x) + ', ' + f(point.y) + ')">' +
-          '<span>vector2(' + f(point.x) + ', ' + f(point.y) + ')</span>' +
-          window.Icons.icon('copy', 12) + '</button>' +
+          '<button class="fmt-value" data-copy="' + escapeHtml(coords) + '">' +
+          '<span>' + escapeHtml(coords) + '</span>' + window.Icons.icon('copy', 12) + '</button>' +
+          '<button class="fmt-value" data-copy="' + escapeHtml(vec3) + '">' +
+          '<span>' + escapeHtml(vec3) + '</span>' + window.Icons.icon('copy', 12) + '</button>' +
+          '<button class="fmt-value" data-copy="' + escapeHtml(tpCmd) + '">' +
+          '<span>' + escapeHtml(tpCmd) + '</span>' + window.Icons.icon('copy', 12) + '</button>' +
           '</div>',
-        { className: 'blip-popup', closeButton: true, minWidth: 200, autoPan: false }
+        { className: 'blip-popup', closeButton: true, minWidth: 210, autoPan: false }
       );
 
       vertex.on('click', function (e) {
@@ -401,15 +408,32 @@
           }
         ).addTo(zoneLayer);
 
-        polygon.on('click', function () {
+        /* The zone itself is the click target — no centre pin. */
+        polygon.bindPopup(popupHtml(blip), {
+          className: 'blip-popup',
+          closeButton: true,
+          minWidth: 232,
+          autoPan: false
+        });
+
+        polygon.on('click', function (e) {
+          L.DomEvent.stopPropagation(e);
+          var wasSelected = state.selectedId === blip.id;
           state.selectedId = blip.id;
           renderList();
-          renderMarkers();
-          if (markers[blip.id]) markers[blip.id].openPopup();
+          if (!wasSelected) {
+            renderMarkers();
+            if (markers[blip.id]) markers[blip.id].openPopup(e.latlng);
+          } else {
+            renderConnections();
+          }
         });
+
+        markers[blip.id] = polygon;
 
         /* Selecting a zone exposes its vertices. */
         if (isSelected) renderVertices(blip, style);
+        return;
       }
 
       var marker = L.marker(gtaToLatLng(blip.x, blip.y), {
@@ -666,7 +690,7 @@
         return (
           '<button class="conn-link vertex-link" data-vertex="' + escapeHtml(blip.id) + ':' + i + '">' +
           '<span class="vertex-index">' + (i + 1) + '</span>' +
-          '<span>' + f(point.x) + ', ' + f(point.y) + '</span>' +
+          '<span>' + f(point.x) + ', ' + f(point.y) + ', ' + f(point.z) + '</span>' +
           window.Icons.icon('copy', 11) +
           '</button>'
         );
@@ -749,7 +773,15 @@
     map.setView(gtaToLatLng(blip.x, blip.y), Math.max(map.getZoom(), 1), { animate: true });
     renderList();
     renderMarkers();
-    if (markers[id]) markers[id].openPopup();
+    openBlipPopup(blip);
+  }
+
+  /* Polygons have no single anchor, so tell the popup where to sit. */
+  function openBlipPopup(blip) {
+    var layer = markers[blip.id];
+    if (!layer) return;
+    if (blip.type === 'zone') layer.openPopup(gtaToLatLng(blip.x, blip.y));
+    else layer.openPopup();
   }
 
   /* Popups are rebuilt as HTML strings, so wire them by delegation. */
@@ -773,7 +805,7 @@
       var zone = state.byId[parts[0]];
       var point = zone && zone.points[parseInt(parts[1], 10)];
       if (point) {
-        copyText(f(point.x) + ', ' + f(point.y));
+        copyText(f(point.x) + ', ' + f(point.y) + ', ' + f(point.z));
         toast('Copied point ' + (parseInt(parts[1], 10) + 1));
         map.panTo(gtaToLatLng(point.x, point.y), { animate: true });
         if (vertexMarkers[ref]) vertexMarkers[ref].openPopup();
@@ -981,11 +1013,16 @@
       row.addEventListener('click', function () {
         var blip = state.byId[row.getAttribute('data-id')];
         if (!blip) return;
+        /* Clicking the highlighted row again clears it. */
+        if (state.selectedId === blip.id) {
+          clearSelection();
+          return;
+        }
         state.selectedId = blip.id;
         map.setView(gtaToLatLng(blip.x, blip.y), Math.max(map.getZoom(), 1), { animate: true });
         renderList();
         renderMarkers();
-        if (markers[blip.id]) markers[blip.id].openPopup();
+        openBlipPopup(blip);
       });
     });
   }
@@ -1361,6 +1398,27 @@
    * Wiring
    * ------------------------------------------------------------------ */
 
+  /* Clearing the selection. Markers, polygons and connector lines all stop
+   * propagation, so a map click only lands on bare ground. */
+  function clearSelection() {
+    if (!state.selectedId) return;
+    state.selectedId = null;
+    map.closePopup();
+    renderList();
+    renderMarkers();
+  }
+
+  map.on('click', clearSelection);
+
+  /* Closing a popup with its X should deselect too — but switching
+   * straight to another blip fires popupclose before popupopen, so check
+   * on the next tick whether a popup is actually gone. */
+  map.on('popupclose', function () {
+    setTimeout(function () {
+      if (!document.querySelector('.leaflet-popup')) clearSelection();
+    }, 0);
+  });
+
   document.getElementById('search').addEventListener('input', function (e) {
     state.search = e.target.value;
     renderList();
@@ -1424,6 +1482,7 @@
     if (e.key === 'Escape') {
       loginModal.hidden = true;
       jumpModal.hidden = true;
+      clearSelection();
     }
   });
 
