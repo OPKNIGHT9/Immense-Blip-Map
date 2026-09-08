@@ -107,6 +107,15 @@
    * Blip loading
    * ------------------------------------------------------------------ */
 
+  function centroid(points) {
+    var sx = 0, sy = 0;
+    points.forEach(function (p) {
+      sx += p.x;
+      sy += p.y;
+    });
+    return { x: sx / points.length, y: sy / points.length };
+  }
+
   function normalise(blip, group, index) {
     var heading = blip.heading;
     if (heading === '' || heading === undefined) heading = null;
@@ -116,17 +125,41 @@
       else heading = ((heading % 360) + 360) % 360;
     }
 
+    var points = Array.isArray(blip.points)
+      ? blip.points
+          .map(function (p) {
+            if (Array.isArray(p)) return { x: Number(p[0]), y: Number(p[1]) };
+            return { x: Number(p.x), y: Number(p.y) };
+          })
+          .filter(function (p) {
+            return !isNaN(p.x) && !isNaN(p.y);
+          })
+      : [];
+
+    var isZone = points.length >= 3;
+
+    /* A zone's marker sits at its centroid unless the author pinned it. */
+    var anchor =
+      blip.x != null && blip.y != null
+        ? { x: Number(blip.x), y: Number(blip.y) }
+        : isZone
+        ? centroid(points)
+        : { x: 0, y: 0 };
+
     return {
       id: blip.id || group + '-' + index,
       name: blip.name || 'Unnamed',
+      type: isZone ? 'zone' : 'blip',
+      points: points,
       section: SECTIONS[blip.section] ? blip.section : Object.keys(SECTIONS)[0],
       subsection: blip.subsection || null,
       icon: blip.icon || null,
       color: blip.color || null,
       description: blip.description || '',
-      x: Number(blip.x) || 0,
-      y: Number(blip.y) || 0,
+      x: anchor.x,
+      y: anchor.y,
       z: blip.z == null ? null : Number(blip.z),
+      fillOpacity: blip.fillOpacity == null ? 0.25 : Number(blip.fillOpacity),
       heading: heading,
       connections: Array.isArray(blip.connections) ? blip.connections.slice() : [],
       group: group
@@ -218,6 +251,7 @@
   var view = CONFIG.defaultView || { x: 0, y: 0, zoom: -1 };
   map.setView(gtaToLatLng(view.x, view.y), view.zoom == null ? -1 : view.zoom);
 
+  var zoneLayer = L.layerGroup().addTo(map);
   var connectionLayer = L.layerGroup().addTo(map);
   var blipLayer = L.layerGroup().addTo(map);
   var pingLayer = L.layerGroup().addTo(map);
@@ -269,11 +303,34 @@
 
   function renderMarkers() {
     blipLayer.clearLayers();
+    zoneLayer.clearLayers();
     markers = {};
 
     visibleBlips().forEach(function (blip) {
       var style = resolveStyle(blip);
       var isSelected = state.selectedId === blip.id;
+
+      if (blip.type === 'zone') {
+        var polygon = L.polygon(
+          blip.points.map(function (p) {
+            return gtaToLatLng(p.x, p.y);
+          }),
+          {
+            color: style.color,
+            fillColor: style.color,
+            fillOpacity: isSelected ? Math.min(blip.fillOpacity + 0.15, 0.7) : blip.fillOpacity,
+            weight: isSelected ? 3 : 2,
+            opacity: isSelected ? 1 : 0.8
+          }
+        ).addTo(zoneLayer);
+
+        polygon.on('click', function () {
+          state.selectedId = blip.id;
+          renderList();
+          renderMarkers();
+          if (markers[blip.id]) markers[blip.id].openPopup();
+        });
+      }
 
       var marker = L.marker(gtaToLatLng(blip.x, blip.y), {
         icon: L.divIcon({
@@ -295,6 +352,7 @@
       marker.on('click', function () {
         state.selectedId = blip.id;
         renderList();
+        renderConnections();
       });
 
       markers[blip.id] = marker;
@@ -318,11 +376,26 @@
         if (drawn[pairKey]) return;
         drawn[pairKey] = true;
 
-        L.polyline([gtaToLatLng(blip.x, blip.y), gtaToLatLng(target.x, target.y)], {
-          color: resolveStyle(blip).color,
-          weight: 2,
-          opacity: 0.55,
-          dashArray: '6, 6',
+        var lit = state.selectedId === blip.id || state.selectedId === targetId;
+        var color = resolveStyle(state.selectedId === targetId ? target : blip).color;
+        var line = [gtaToLatLng(blip.x, blip.y), gtaToLatLng(target.x, target.y)];
+
+        if (lit) {
+          /* A wide, faint line under the real one reads as a glow. */
+          L.polyline(line, {
+            color: color,
+            weight: 11,
+            opacity: 0.22,
+            interactive: false,
+            className: 'connector-glow'
+          }).addTo(connectionLayer);
+        }
+
+        L.polyline(line, {
+          color: color,
+          weight: lit ? 3 : 2,
+          opacity: lit ? 1 : 0.45,
+          dashArray: lit ? null : '6, 6',
           interactive: false
         }).addTo(connectionLayer);
       });
@@ -348,7 +421,10 @@
         /* Heading is deliberately left off the teleport command. */
         return (CONFIG.tpCommand || '/tp') + ' ' + f(blip.x) + ' ' + f(blip.y) + ' ' + f(z);
       default:
-        return f(blip.x) + ', ' + f(blip.y) + ', ' + f(z);
+        return (
+          f(blip.x) + ', ' + f(blip.y) + ', ' + f(z) +
+          (blip.heading === null ? '' : ', ' + f(blip.heading))
+        );
     }
   }
 
@@ -377,7 +453,7 @@
       (blip.description ? '<p>' + escapeHtml(blip.description) + '</p>' : '') +
       '<div class="blip-popup-meta">' +
       '<span>' + escapeHtml(sectionPath(blip)) + '</span>' +
-      (blip.heading !== null ? '<span class="blip-heading-tag">' + f(blip.heading) + '&deg;</span>' : '') +
+      (blip.type === 'zone' ? '<span class="blip-zone-tag">Zone</span>' : '') +
       (blip.group !== 'public'
         ? '<span class="blip-group-tag" style="color:' + (grp.color || '#888') + '">' +
           escapeHtml(grp.label || blip.group) + '</span>'
@@ -388,8 +464,68 @@
       '<span>' + escapeHtml(formatValue(blip, chosen)) + '</span>' +
       window.Icons.icon('copy', 12) +
       '</button>' +
+      connectionListHtml(blip) +
       '</div>'
     );
+  }
+
+  /* Every blip this one links to, in either direction. */
+  function linkedBlips(blip) {
+    var seen = {};
+    var out = [];
+
+    blip.connections.forEach(function (id) {
+      var target = state.byId[id];
+      if (target && !seen[id] && isVisible(target)) {
+        seen[id] = true;
+        out.push(target);
+      }
+    });
+
+    state.blips.forEach(function (other) {
+      if (other.id === blip.id || seen[other.id]) return;
+      if (other.connections.indexOf(blip.id) === -1) return;
+      if (!isVisible(other)) return;
+      seen[other.id] = true;
+      out.push(other);
+    });
+
+    return out;
+  }
+
+  function connectionListHtml(blip) {
+    var linked = linkedBlips(blip);
+    if (!linked.length) return '';
+
+    var items = linked
+      .map(function (target) {
+        var style = resolveStyle(target);
+        return (
+          '<button class="conn-link" data-goto="' + escapeHtml(target.id) + '">' +
+          '<span class="conn-dot" style="background:' + style.color + '"></span>' +
+          '<span>' + escapeHtml(target.name) + '</span>' +
+          window.Icons.icon('chevron-right', 11) +
+          '</button>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div class="conn-block">' +
+      '<div class="conn-title">' + window.Icons.icon('link', 11) +
+      '<span>Connected to ' + linked.length + '</span></div>' +
+      items + '</div>'
+    );
+  }
+
+  function gotoBlip(id) {
+    var blip = state.byId[id];
+    if (!blip) return;
+    state.selectedId = id;
+    map.setView(gtaToLatLng(blip.x, blip.y), Math.max(map.getZoom(), 1), { animate: true });
+    renderList();
+    renderMarkers();
+    if (markers[id]) markers[id].openPopup();
   }
 
   /* Popups are rebuilt as HTML strings, so wire them by delegation. */
@@ -403,6 +539,12 @@
       if (blip && marker && marker.getPopup()) {
         marker.setPopupContent(popupHtml(blip));
       }
+      return;
+    }
+
+    var goto = e.target.closest && e.target.closest('[data-goto]');
+    if (goto) {
+      gotoBlip(goto.getAttribute('data-goto'));
       return;
     }
 
@@ -812,6 +954,121 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Zoom readout — editable
+   *
+   * Each whole zoom level doubles the scale, so 0 is 100%, 1 is 200%,
+   * -1 is 50%. With minZoom -2 and maxZoom 4 that's 25% to 1600%.
+   * ------------------------------------------------------------------ */
+
+  var MIN_PCT = Math.round(Math.pow(2, map.getMinZoom()) * 100);
+  var MAX_PCT = Math.round(Math.pow(2, map.getMaxZoom()) * 100);
+
+  var zoomValueEl = document.getElementById('zoom-value');
+  var zoomInputEl = document.getElementById('zoom-input');
+
+  function zoomToPercent(zoom) {
+    return Math.round(Math.pow(2, zoom) * 100);
+  }
+
+  function percentToZoom(pct) {
+    return Math.log(pct / 100) / Math.LN2;
+  }
+
+  function renderZoom() {
+    zoomValueEl.textContent = zoomToPercent(map.getZoom()) + '%';
+  }
+
+  function openZoomInput() {
+    zoomInputEl.value = zoomToPercent(map.getZoom());
+    zoomValueEl.hidden = true;
+    zoomInputEl.hidden = false;
+    zoomInputEl.focus();
+    zoomInputEl.select();
+  }
+
+  function closeZoomInput() {
+    zoomInputEl.hidden = true;
+    zoomValueEl.hidden = false;
+    renderZoom();
+  }
+
+  function applyZoomInput() {
+    var pct = parseFloat(String(zoomInputEl.value).replace('%', ''));
+    if (isNaN(pct)) {
+      closeZoomInput();
+      return;
+    }
+    var clamped = Math.max(MIN_PCT, Math.min(MAX_PCT, pct));
+    if (clamped !== pct) toast('Zoom is limited to ' + MIN_PCT + '-' + MAX_PCT + '%');
+    map.setZoom(percentToZoom(clamped));
+    closeZoomInput();
+  }
+
+  zoomValueEl.addEventListener('click', openZoomInput);
+  zoomInputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') applyZoomInput();
+    if (e.key === 'Escape') closeZoomInput();
+  });
+  zoomInputEl.addEventListener('blur', closeZoomInput);
+  map.on('zoomend', renderZoom);
+  document.getElementById('zoom-box').title = 'Zoom (' + MIN_PCT + '-' + MAX_PCT + '%) — click to type a value';
+
+  /* ------------------------------------------------------------------ *
+   * Resizable split between the section tree and the location list
+   * ------------------------------------------------------------------ */
+
+  var SPLIT_KEY = 'blipmap:navHeight';
+  var navPane = document.getElementById('nav-tree');
+  var handle = document.getElementById('split-handle');
+
+  function setNavHeight(px) {
+    var sidebar = document.querySelector('.sidebar');
+    var max = Math.max(120, sidebar.clientHeight - 300);
+    var clamped = Math.max(90, Math.min(max, px));
+    navPane.style.height = clamped + 'px';
+    try {
+      localStorage.setItem(SPLIT_KEY, String(clamped));
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  try {
+    var storedHeight = parseInt(localStorage.getItem(SPLIT_KEY), 10);
+    if (storedHeight) navPane.style.height = storedHeight + 'px';
+  } catch (err) {
+    /* ignore */
+  }
+
+  var dragging = false;
+
+  handle.addEventListener('mousedown', function (e) {
+    dragging = true;
+    document.body.classList.add('resizing');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    setNavHeight(e.clientY - navPane.getBoundingClientRect().top);
+  });
+
+  window.addEventListener('mouseup', function () {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('resizing');
+  });
+
+  handle.addEventListener('dblclick', function () {
+    navPane.style.height = '';
+    try {
+      localStorage.removeItem(SPLIT_KEY);
+    } catch (err) {
+      /* ignore */
+    }
+  });
+
+  /* ------------------------------------------------------------------ *
    * Misc
    * ------------------------------------------------------------------ */
 
@@ -952,6 +1209,7 @@
   else headerLink.hidden = true;
 
   window.Icons.hydrate(document);
+  renderZoom();
   loadPublicBlips();
   loadPlaintextGroups();
   restoreSession();

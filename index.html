@@ -38,6 +38,10 @@
 
         <div class="nav-tree" id="nav-tree"></div>
 
+        <div class="split-handle" id="split-handle" title="Drag to resize &bull; double-click to reset">
+          <span class="split-grip"></span>
+        </div>
+
         <div class="list-header">
           <span id="blip-count">0 locations</span>
         </div>
@@ -63,6 +67,12 @@
         </div>
 
         <div class="coords" id="coords" hidden></div>
+
+        <div class="zoom-box" id="zoom-box">
+          <span data-icon="zoom-in" data-size="13"></span>
+          <button class="zoom-value" id="zoom-value">100%</button>
+          <input type="text" class="zoom-input" id="zoom-input" hidden />
+        </div>
       </main>
     </div>
 

@@ -53,6 +53,29 @@ Coordinates are game coordinates. Right-click anywhere on the map to copy the co
 
 **Connectors.** Set `connections` to an array of other blips' `id` values and a dashed line is drawn between them. Lines only appear when both ends are visible, so hiding a section hides its lines too. The link button on the map toggles all of them; `connectionsOn` in `config.js` sets the starting state.
 
+Selecting a blip lights up its connectors and lists everything it links to at the bottom of the popup — click any of those to jump straight there. Links are read in both directions, so a blip shows up in its partner's list even if only one side declares the connection.
+
+**Zones.** Give a blip a `points` array of three or more coordinate pairs and it renders as a filled area instead of a pin:
+
+```js
+{
+  id: 'downtown-zone',
+  name: 'Downtown Safe Zone',
+  section: 'general',
+  color: '#22c55e',
+  fillOpacity: 0.2,          // optional, defaults to 0.25
+  z: 30.0,
+  points: [
+    { x: 60.0,  y: -750.0 },
+    { x: 420.0, y: -820.0 },
+    { x: 450.0, y: -1120.0 },
+    { x: 110.0, y: -1180.0 }
+  ]
+}
+```
+
+`[x, y]` pairs work as well as `{x, y}` objects. The marker sits at the polygon's centroid unless you also give `x` and `y` to pin it somewhere specific — and that anchor is what the coordinate buttons and any connectors use. Zones behave like any other blip otherwise: they filter, search, connect and appear in the list.
+
 **Group blips** — these have to be encrypted, so open `tools/admin.html` in your browser (locally, or from the deployed site — it does everything in-page and sends nothing anywhere):
 
 1. **Step 1** — generate a key for the group. Save it somewhere safe; you need it every time.
@@ -102,12 +125,12 @@ The popup has four coordinate formats, with **Coords** selected by default. Clic
 
 | Button | Output |
 |---|---|
-| Coords | `195.00, -934.00, 30.70` |
+| Coords | `195.00, -934.00, 30.70, 145.00` |
 | vec3 | `vector3(195.00, -934.00, 30.70)` |
 | vec4 | `vector4(195.00, -934.00, 30.70, 145.00)` |
 | TP | `/tp 195.00 -934.00 30.70` |
 
-Everything prints as a float. `vec4` is greyed out on blips with no heading. The TP command deliberately leaves the heading off — change the command itself with `tpCommand` in `config.js`, and the number of decimals with `decimals`.
+Everything prints as a float. Coords includes the heading as a fourth number when the blip has one, and drops it when it doesn't. `vec4` is greyed out on blips with no heading. The TP command deliberately leaves the heading off — change the command itself with `tpCommand` in `config.js`, and the number of decimals with `decimals`.
 
 ## Deploying
 
@@ -124,6 +147,8 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 | Crosshair button | Jump to coordinates |
 | `Ctrl+F` | Same jump dialog — accepts `123, -456` or a whole `vector3(...)` pasted into the X field |
 | Right-click the map | Copy the coordinates under the cursor |
+| Zoom box (bottom right) | Click the percentage to type an exact zoom, 25%–1600% |
+| Divider in the sidebar | Drag to resize the section tree against the location list; double-click to reset |
 | `Esc` | Close any dialog |
 
 ## Running locally
