@@ -1,29 +1,17 @@
-/* Zone Creator — vanilla JS. No build step, no framework. */
+/* Immense Blip Map — read-only blip viewer with optional group logins. */
 (function () {
   'use strict';
 
   /* ------------------------------------------------------------------ *
-   * Constants & coordinate maths
+   * Coordinate maths (GTA V game coords <-> map pixels)
    * ------------------------------------------------------------------ */
 
   var IMG_WIDTH = 4096;
   var IMG_HEIGHT = 6144;
-  var GRID_SIZE = 10;
-
   var SCALE_X = 0.454685;
   var SCALE_Y = -0.45483;
   var OFFSET_X = 1882.72;
   var OFFSET_Y = 3826.58;
-
-  var GTA_BOUNDS = { minX: -4000, maxX: 4500, minY: -4000, maxY: 8000 };
-
-  var ZONE_COLORS = [
-    '#22c55e', '#3b82f6', '#f59e0b', '#ef4444',
-    '#06b6d4', '#ec4899', '#8b5cf6', '#a855f7'
-  ];
-
-  var STORAGE_KEY = 'zonecreator:zones';
-  var MAX_HISTORY = 60;
 
   function gtaToLatLng(x, y) {
     return [IMG_HEIGHT - (y * SCALE_Y + OFFSET_Y), x * SCALE_X + OFFSET_X];
@@ -36,169 +24,116 @@
     };
   }
 
-  function snap(value) {
-    return Math.round(value / GRID_SIZE) * GRID_SIZE;
-  }
-
   function round2(n) {
     return Math.round(n * 100) / 100;
   }
 
-  function distance(a, b) {
-    return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
-  }
-
-  function uid(prefix) {
-    return (prefix || 'id') + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-  }
-
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
   function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, function (c) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+
+  var CONFIG = window.CONFIG || {};
+  var CATEGORIES = CONFIG.categories || {};
+  var GROUPS = CONFIG.groups || { public: { label: 'Public', color: '#22c55e' } };
+  var SESSION_KEY = 'blipmap:session';
 
   /* ------------------------------------------------------------------ *
    * State
    * ------------------------------------------------------------------ */
 
-  function loadZones() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      var parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (err) {
-      return [];
-    }
-  }
-
   var state = {
-    zones: loadZones(),
-    activeZoneId: null,
-    editingZoneId: null,
-    creatingZone: false,
-    expanded: {},
-    selected: {},
-    snapToGrid: false,
-    showDistances: false,
-    preview: null,
-    previewMinimized: false,
-    history: [],
-    historyIndex: -1
+    user: null,
+    blips: [],
+    unlockedGroups: ['public'],
+    hiddenCategories: {},
+    hiddenGroups: {},
+    search: '',
+    selectedId: null
   };
 
-  state.history = [{ zones: clone(state.zones), activeZoneId: null }];
-  state.historyIndex = 0;
+  Object.keys(CATEGORIES).forEach(function (key) {
+    if (CATEGORIES[key].hidden) state.hiddenCategories[key] = true;
+  });
 
-  function activeZone() {
-    return findZone(state.activeZoneId);
-  }
-
-  function findZone(id) {
-    for (var i = 0; i < state.zones.length; i++) {
-      if (state.zones[i].id === id) return state.zones[i];
-    }
-    return null;
-  }
-
-  function selectedCount() {
-    return Object.keys(state.selected).length;
-  }
+  var markers = {};
 
   /* ------------------------------------------------------------------ *
-   * History + persistence
+   * Blip loading
    * ------------------------------------------------------------------ */
 
-  var saveTimer = null;
+  function normalise(blip, group, index) {
+    return {
+      id: group + '-' + index,
+      name: blip.name || 'Unnamed',
+      category: CATEGORIES[blip.category] ? blip.category : Object.keys(CATEGORIES)[0],
+      description: blip.description || '',
+      x: Number(blip.x) || 0,
+      y: Number(blip.y) || 0,
+      z: blip.z == null ? null : Number(blip.z),
+      group: group
+    };
+  }
 
-  function persist() {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.zones));
-        flashSaved();
-      } catch (err) {
-        console.error('Failed to save zones:', err);
+  function loadPublicBlips() {
+    var source = (window.BLIPS && window.BLIPS.public) || [];
+    state.blips = source.map(function (b, i) {
+      return normalise(b, 'public', i);
+    });
+  }
+
+  function addGroupBlips(group, list) {
+    if (state.unlockedGroups.indexOf(group) === -1) state.unlockedGroups.push(group);
+    state.blips = state.blips.filter(function (b) {
+      return b.group !== group;
+    });
+    list.forEach(function (b, i) {
+      state.blips.push(normalise(b, group, i));
+    });
+  }
+
+  /* Groups stored as plain text in blips.js need no key — they're visible to
+   * anyone reading the file, and are only useful while you're setting things
+   * up. Encrypted groups are the ones that actually stay hidden. */
+  function loadPlaintextGroups() {
+    var groups = (window.BLIPS && window.BLIPS.groups) || {};
+    Object.keys(groups).forEach(function (name) {
+      if (groups[name] && Array.isArray(groups[name].blips) && groups[name].plaintextPublic) {
+        addGroupBlips(name, groups[name].blips);
       }
-    }, 400);
+    });
   }
 
-  function pushHistory() {
-    state.history = state.history.slice(0, state.historyIndex + 1);
-    state.history.push({ zones: clone(state.zones), activeZoneId: state.activeZoneId });
-    if (state.history.length > MAX_HISTORY) state.history.shift();
-    state.historyIndex = state.history.length - 1;
-    persist();
-  }
+  function unlockGroupsFor(session) {
+    var groups = (window.BLIPS && window.BLIPS.groups) || {};
+    var names = Object.keys(session.groups);
 
-  function undo() {
-    if (state.historyIndex <= 0) return;
-    state.historyIndex--;
-    var snapshot = state.history[state.historyIndex];
-    state.zones = clone(snapshot.zones);
-    state.activeZoneId = snapshot.activeZoneId;
-    state.selected = {};
-    persist();
-    render();
-  }
+    return names.reduce(function (chain, name) {
+      var entry = groups[name];
+      if (!entry) return chain;
 
-  function redo() {
-    if (state.historyIndex >= state.history.length - 1) return;
-    state.historyIndex++;
-    var snapshot = state.history[state.historyIndex];
-    state.zones = clone(snapshot.zones);
-    state.activeZoneId = snapshot.activeZoneId;
-    state.selected = {};
-    persist();
-    render();
+      if (Array.isArray(entry.blips)) {
+        addGroupBlips(name, entry.blips);
+        return chain;
+      }
+      if (!entry.encrypted) return chain;
+
+      return chain
+        .then(function () {
+          return window.ZCrypto.decryptText(session.groups[name], entry.encrypted);
+        })
+        .then(function (json) {
+          addGroupBlips(name, JSON.parse(json));
+        })
+        .catch(function (err) {
+          console.warn('Could not decrypt group "' + name + '":', err);
+        });
+    }, Promise.resolve());
   }
 
   /* ------------------------------------------------------------------ *
-   * Notifications
-   * ------------------------------------------------------------------ */
-
-  var notifyRoot = document.getElementById('notifications');
-
-  function notify(message, type) {
-    type = type || 'success';
-    var el = document.createElement('div');
-    el.className = 'notification notification-' + type;
-    el.innerHTML =
-      '<div class="notification-icon">' +
-      window.Icons.icon(type === 'success' ? 'check' : type === 'error' ? 'alert' : 'info', 16) +
-      '</div><span class="notification-message">' +
-      escapeHtml(message) +
-      '</span>';
-    notifyRoot.appendChild(el);
-    setTimeout(function () {
-      el.classList.add('notification-exit');
-    }, 2700);
-    setTimeout(function () {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 3000);
-  }
-
-  var saveIndicator = document.getElementById('save-indicator');
-  var saveHideTimer = null;
-
-  function flashSaved() {
-    saveIndicator.hidden = false;
-    saveIndicator.classList.remove('visible');
-    void saveIndicator.offsetWidth;
-    saveIndicator.classList.add('visible');
-    if (saveHideTimer) clearTimeout(saveHideTimer);
-    saveHideTimer = setTimeout(function () {
-      saveIndicator.hidden = true;
-    }, 2400);
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Map setup
+   * Map
    * ------------------------------------------------------------------ */
 
   var map = L.map('map', {
@@ -211,628 +146,394 @@
     zoomDelta: 0.15,
     wheelPxPerZoomLevel: 120,
     inertia: true,
-    maxBoundsViscosity: 0.8,
-    preferCanvas: true
+    maxBoundsViscosity: 0.8
   });
 
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   var imageBounds = [[0, 0], [IMG_HEIGHT, IMG_WIDTH]];
   L.imageOverlay('assets/gta_map.jpg', imageBounds).addTo(map);
-  map.fitBounds(imageBounds);
-  map.setZoom(-1);
   map.setMaxBounds(imageBounds);
 
-  var drawLayer = L.layerGroup().addTo(map);
-  var gridLayer = L.layerGroup().addTo(map);
-  var previewLayer = L.layerGroup().addTo(map);
-  var rubberBand = null;
+  var view = CONFIG.defaultView || { x: 0, y: 0, zoom: -1 };
+  map.setView(gtaToLatLng(view.x, view.y), view.zoom == null ? -1 : view.zoom);
 
-  /* ------------------------------------------------------------------ *
-   * Zone helpers
-   * ------------------------------------------------------------------ */
+  var blipLayer = L.layerGroup().addTo(map);
 
-  function createZone(name, points) {
-    return {
-      id: uid('zone'),
-      name: name || 'Zone ' + (state.zones.length + 1),
-      points: points || [],
-      color: ZONE_COLORS[state.zones.length % ZONE_COLORS.length],
-      visible: true,
-      thickness: 150,
-      groundZ: 0
-    };
-  }
-
-  function makePoint(x, y) {
-    return { id: uid('pt'), x: round2(x), y: round2(y) };
-  }
-
-  function addPointToActive(x, y) {
-    var zone = activeZone();
-    if (!zone) {
-      notify('Create or select a zone first', 'info');
-      return;
-    }
-    if (state.snapToGrid) {
-      x = snap(x);
-      y = snap(y);
-    }
-    zone.points.push(makePoint(x, y));
-    pushHistory();
-    render();
-  }
-
-  function deletePoint(zoneId, pointId) {
-    var zone = findZone(zoneId);
-    if (!zone) return;
-    zone.points = zone.points.filter(function (p) {
-      return p.id !== pointId;
+  function visibleBlips() {
+    var term = state.search.trim().toLowerCase();
+    return state.blips.filter(function (b) {
+      if (state.hiddenCategories[b.category]) return false;
+      if (state.hiddenGroups[b.group]) return false;
+      if (state.unlockedGroups.indexOf(b.group) === -1) return false;
+      if (!term) return true;
+      return (
+        b.name.toLowerCase().indexOf(term) !== -1 ||
+        b.description.toLowerCase().indexOf(term) !== -1
+      );
     });
-    delete state.selected[pointId];
-    pushHistory();
-    render();
   }
 
-  /* Insert a point on the polygon edge closest to the click. */
-  function insertPointOnEdge(zone, x, y) {
-    if (zone.points.length < 2) return;
-    var best = { index: 0, dist: Infinity };
-    for (var i = 0; i < zone.points.length; i++) {
-      var a = zone.points[i];
-      var b = zone.points[(i + 1) % zone.points.length];
-      var d = pointToSegment({ x: x, y: y }, a, b);
-      if (d < best.dist) best = { index: i, dist: d };
-    }
-    if (state.snapToGrid) {
-      x = snap(x);
-      y = snap(y);
-    }
-    zone.points.splice(best.index + 1, 0, makePoint(x, y));
-    pushHistory();
-    render();
-    notify('Point inserted on edge', 'info');
-  }
+  function renderMarkers() {
+    blipLayer.clearLayers();
+    markers = {};
 
-  function pointToSegment(p, a, b) {
-    var dx = b.x - a.x;
-    var dy = b.y - a.y;
-    var lenSq = dx * dx + dy * dy;
-    if (lenSq === 0) return distance(p, a);
-    var t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
-    return distance(p, { x: a.x + t * dx, y: a.y + t * dy });
-  }
+    visibleBlips().forEach(function (blip) {
+      var cat = CATEGORIES[blip.category] || {};
+      var color = cat.color || '#22c55e';
+      var isSelected = state.selectedId === blip.id;
 
-  /* ------------------------------------------------------------------ *
-   * Map rendering
-   * ------------------------------------------------------------------ */
-
-  function renderMap() {
-    drawLayer.clearLayers();
-
-    state.zones.forEach(function (zone) {
-      if (!zone.visible) return;
-      var isActive = zone.id === state.activeZoneId;
-      var latlngs = zone.points.map(function (p) {
-        return gtaToLatLng(p.x, p.y);
-      });
-
-      var shape = null;
-
-      if (zone.points.length >= 3) {
-        var polygon = L.polygon(latlngs, {
-          color: zone.color,
-          fillColor: zone.color,
-          fillOpacity: isActive ? 0.35 : 0.2,
-          weight: isActive ? 3 : 2,
-          dashArray: isActive ? null : '5, 5'
-        }).addTo(drawLayer);
-        shape = polygon;
-
-        polygon.on('click', function (e) {
-          if (!isActive) {
-            setActiveZone(zone.id);
-            L.DomEvent.stopPropagation(e);
-            return;
-          }
-          L.DomEvent.stopPropagation(e);
-          var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
-          insertPointOnEdge(zone, gta.x, gta.y);
-        });
-      } else if (zone.points.length === 2) {
-        shape = L.polyline(latlngs, { color: zone.color, weight: 2, dashArray: '5, 5' }).addTo(drawLayer);
-      }
-
-      zone.points.forEach(function (point, index) {
-        var size = isActive ? 28 : 22;
-        var isSelected = !!state.selected[point.id];
-        var marker = L.marker(gtaToLatLng(point.x, point.y), {
-          draggable: isActive,
-          bubblingMouseEvents: false,
-          icon: L.divIcon({
-            className: 'zone-point-marker' + (isActive ? ' active' : '') + (isSelected ? ' selected' : ''),
-            html:
-              '<div class="zone-point-inner" style="background:' +
-              zone.color +
-              ';border-color:' +
-              (isActive ? '#ffffff' : zone.color) +
-              '">' +
-              (index + 1) +
-              '</div>',
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2]
-          })
-        }).addTo(drawLayer);
-
-        marker.bindTooltip(
-          '<div class="point-tooltip-content">' +
-            '<div class="point-tooltip-header">Point ' + (index + 1) + '</div>' +
-            '<div class="point-tooltip-coords">X: ' + point.x + '</div>' +
-            '<div class="point-tooltip-coords">Y: ' + point.y + '</div>' +
-            (isActive ? '<div class="point-tooltip-hint">Drag to move &bull; Right-click to delete</div>' : '') +
+      var marker = L.marker(gtaToLatLng(blip.x, blip.y), {
+        icon: L.divIcon({
+          className: 'blip-marker' + (isSelected ? ' selected' : ''),
+          html:
+            '<div class="blip-pin" style="background:' +
+            color +
+            '">' +
+            window.Icons.icon(cat.icon || 'map-pin', 14) +
             '</div>',
-          { direction: 'top', offset: [0, -12], className: 'zone-point-tooltip-enhanced' }
-        );
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
+        })
+      }).addTo(blipLayer);
 
-        marker.on('drag', function (e) {
-          var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
-          point.x = round2(state.snapToGrid ? snap(gta.x) : gta.x);
-          point.y = round2(state.snapToGrid ? snap(gta.y) : gta.y);
-          if (shape) {
-            shape.setLatLngs(
-              zone.points.map(function (p) {
-                return gtaToLatLng(p.x, p.y);
-              })
-            );
-          }
-        });
-
-        marker.on('dragend', function () {
-          if (state.snapToGrid) marker.setLatLng(gtaToLatLng(point.x, point.y));
-          pushHistory();
-          render();
-        });
-
-        marker.on('contextmenu', function (e) {
-          L.DomEvent.stopPropagation(e);
-          deletePoint(zone.id, point.id);
-        });
-
-        marker.on('click', function (e) {
-          L.DomEvent.stopPropagation(e);
-          if (e.originalEvent && (e.originalEvent.ctrlKey || e.originalEvent.metaKey)) {
-            if (state.selected[point.id]) delete state.selected[point.id];
-            else state.selected[point.id] = true;
-            render();
-          }
-        });
+      marker.bindPopup(popupHtml(blip), { className: 'blip-popup', closeButton: true, offset: [0, -8] });
+      marker.on('click', function () {
+        state.selectedId = blip.id;
+        renderList();
       });
 
-      if (state.showDistances && zone.points.length >= 2) {
-        var count = zone.points.length >= 3 ? zone.points.length : zone.points.length - 1;
-        for (var i = 0; i < count; i++) {
-          var p1 = zone.points[i];
-          var p2 = zone.points[(i + 1) % zone.points.length];
-          var mid = gtaToLatLng((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
-          L.marker(mid, {
-            interactive: false,
-            icon: L.divIcon({
-              className: 'distance-label',
-              html: '<span>' + distance(p1, p2).toFixed(1) + 'm</span>',
-              iconSize: [50, 20],
-              iconAnchor: [25, 10]
-            })
-          }).addTo(drawLayer);
-        }
-      }
+      markers[blip.id] = marker;
     });
   }
 
-  function renderGrid() {
-    gridLayer.clearLayers();
-    if (!state.snapToGrid) return;
-    var spacing = GRID_SIZE * 5;
-    var i;
-    for (i = Math.floor(GTA_BOUNDS.minX / spacing) * spacing; i <= GTA_BOUNDS.maxX; i += spacing) {
-      L.polyline([gtaToLatLng(i, GTA_BOUNDS.minY), gtaToLatLng(i, GTA_BOUNDS.maxY)], {
-        color: '#ffffff',
-        weight: 0.5,
-        opacity: 0.12,
-        interactive: false
-      }).addTo(gridLayer);
-    }
-    for (i = Math.floor(GTA_BOUNDS.minY / spacing) * spacing; i <= GTA_BOUNDS.maxY; i += spacing) {
-      L.polyline([gtaToLatLng(GTA_BOUNDS.minX, i), gtaToLatLng(GTA_BOUNDS.maxX, i)], {
-        color: '#ffffff',
-        weight: 0.5,
-        opacity: 0.12,
-        interactive: false
-      }).addTo(gridLayer);
-    }
+  function popupHtml(blip) {
+    var cat = CATEGORIES[blip.category] || {};
+    var grp = GROUPS[blip.group] || {};
+    var coords = blip.x + ', ' + blip.y + (blip.z == null ? '' : ', ' + blip.z);
+    return (
+      '<div class="blip-popup-inner">' +
+      '<div class="blip-popup-head"><span class="blip-dot" style="background:' +
+      (cat.color || '#22c55e') +
+      '"></span><strong>' +
+      escapeHtml(blip.name) +
+      '</strong></div>' +
+      (blip.description ? '<p>' + escapeHtml(blip.description) + '</p>' : '') +
+      '<div class="blip-popup-meta">' +
+      '<span>' + escapeHtml(cat.label || blip.category) + '</span>' +
+      (blip.group !== 'public'
+        ? '<span class="blip-group-tag" style="color:' + (grp.color || '#888') + '">' +
+          escapeHtml(grp.label || blip.group) +
+          '</span>'
+        : '') +
+      '</div>' +
+      '<button class="blip-copy-btn" data-coords="' + escapeHtml(coords) + '">' +
+      window.Icons.icon('copy', 12) +
+      '<span>' + escapeHtml(coords) + '</span></button>' +
+      '</div>'
+    );
   }
 
   /* ------------------------------------------------------------------ *
-   * Panel rendering
+   * Sidebar
    * ------------------------------------------------------------------ */
 
-  var zoneListEl = document.getElementById('zone-list');
-  var createSectionEl = document.getElementById('create-section');
+  var filterEl = document.getElementById('filters');
+  var listEl = document.getElementById('blip-list');
+  var countEl = document.getElementById('blip-count');
 
-  function renderCreateSection() {
-    if (state.creatingZone) {
-      createSectionEl.innerHTML =
-        '<div class="zone-create-form">' +
-        '<input type="text" class="zone-name-input" id="new-zone-name" placeholder="Zone name..." />' +
-        '<div class="zone-create-actions">' +
-        '<button class="zone-btn zone-btn-confirm" id="confirm-create">' + window.Icons.icon('check', 14) + '</button>' +
-        '<button class="zone-btn zone-btn-cancel" id="cancel-create">' + window.Icons.icon('x', 14) + '</button>' +
-        '</div></div>';
-      var input = document.getElementById('new-zone-name');
-      input.focus();
-      input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') commitCreateZone();
-        if (e.key === 'Escape') {
-          state.creatingZone = false;
-          renderCreateSection();
-        }
+  function renderFilters() {
+    var html = '<div class="filter-section"><div class="filter-title">Categories</div><div class="filter-chips">';
+
+    Object.keys(CATEGORIES).forEach(function (key) {
+      var cat = CATEGORIES[key];
+      var count = state.blips.filter(function (b) {
+        return b.category === key && state.unlockedGroups.indexOf(b.group) !== -1;
+      }).length;
+      var off = state.hiddenCategories[key];
+      html +=
+        '<button class="filter-chip' + (off ? ' off' : '') + '" data-category="' + key + '" ' +
+        'style="--chip-color:' + cat.color + '">' +
+        '<span class="chip-dot" style="background:' + cat.color + '"></span>' +
+        escapeHtml(cat.label) + '<span class="chip-count">' + count + '</span></button>';
+    });
+
+    html += '</div></div>';
+
+    var extraGroups = state.unlockedGroups.filter(function (g) {
+      return g !== 'public';
+    });
+
+    if (extraGroups.length) {
+      html += '<div class="filter-section"><div class="filter-title">Groups</div><div class="filter-chips">';
+      html += groupChip('public');
+      extraGroups.forEach(function (g) {
+        html += groupChip(g);
       });
-      document.getElementById('confirm-create').addEventListener('click', commitCreateZone);
-      document.getElementById('cancel-create').addEventListener('click', function () {
-        state.creatingZone = false;
-        renderCreateSection();
-      });
-    } else {
-      createSectionEl.innerHTML =
-        '<button class="zone-create-btn" id="start-create">' +
-        window.Icons.icon('plus', 16) +
-        '<span>Create New Zone</span></button>';
-      document.getElementById('start-create').addEventListener('click', function () {
-        state.creatingZone = true;
-        renderCreateSection();
-      });
+      html += '</div></div>';
     }
+
+    filterEl.innerHTML = html;
+
+    filterEl.querySelectorAll('[data-category]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-category');
+        if (state.hiddenCategories[key]) delete state.hiddenCategories[key];
+        else state.hiddenCategories[key] = true;
+        renderAll();
+      });
+    });
+
+    filterEl.querySelectorAll('[data-group]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-group');
+        if (state.hiddenGroups[key]) delete state.hiddenGroups[key];
+        else state.hiddenGroups[key] = true;
+        renderAll();
+      });
+    });
   }
 
-  function commitCreateZone() {
-    var input = document.getElementById('new-zone-name');
-    var name = input ? input.value.trim() : '';
-    var zone = createZone(name || null, []);
-    state.zones.push(zone);
-    state.activeZoneId = zone.id;
-    state.expanded[zone.id] = true;
-    state.creatingZone = false;
-    pushHistory();
-    render();
-    notify('Created ' + zone.name);
+  function groupChip(name) {
+    var grp = GROUPS[name] || { label: name, color: '#888' };
+    var count = state.blips.filter(function (b) {
+      return b.group === name;
+    }).length;
+    var off = state.hiddenGroups[name];
+    return (
+      '<button class="filter-chip' + (off ? ' off' : '') + '" data-group="' + name + '">' +
+      '<span class="chip-dot" style="background:' + grp.color + '"></span>' +
+      escapeHtml(grp.label) + '<span class="chip-count">' + count + '</span></button>'
+    );
   }
 
-  function renderZoneList() {
-    if (state.zones.length === 0) {
-      zoneListEl.innerHTML =
-        '<div class="zone-empty">' +
-        window.Icons.icon('map-pin', 32) +
-        '<span>No zones created</span><p>Click "Create New Zone" to start</p></div>';
+  function renderList() {
+    var blips = visibleBlips().sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    });
+
+    countEl.textContent = blips.length + (blips.length === 1 ? ' location' : ' locations');
+
+    if (!blips.length) {
+      listEl.innerHTML =
+        '<div class="list-empty">' +
+        window.Icons.icon('map-pin', 28) +
+        '<span>No locations match</span></div>';
       return;
     }
 
     var html = '';
-    state.zones.forEach(function (zone) {
-      var isActive = zone.id === state.activeZoneId;
-      var isExpanded = !!state.expanded[zone.id];
-      var isEditing = state.editingZoneId === zone.id;
-
-      html += '<div class="zone-item ' + (isActive ? 'active' : '') + '" data-zone="' + zone.id + '">';
-      html += '<div class="zone-item-header" data-action="toggle-active">';
-      html += '<div class="zone-item-left">';
+    blips.forEach(function (blip) {
+      var cat = CATEGORIES[blip.category] || {};
+      var grp = GROUPS[blip.group] || {};
       html +=
-        '<button class="zone-expand-btn" data-action="toggle-expand">' +
-        window.Icons.icon(isExpanded ? 'chevron-down' : 'chevron-right', 14) +
+        '<button class="blip-row' + (state.selectedId === blip.id ? ' active' : '') + '" data-id="' + blip.id + '">' +
+        '<span class="blip-row-icon" style="background:' + (cat.color || '#22c55e') + '22;color:' + (cat.color || '#22c55e') + '">' +
+        window.Icons.icon(cat.icon || 'map-pin', 14) +
+        '</span>' +
+        '<span class="blip-row-text">' +
+        '<span class="blip-row-name">' + escapeHtml(blip.name) + '</span>' +
+        '<span class="blip-row-sub">' + escapeHtml(cat.label || blip.category) +
+        (blip.group !== 'public'
+          ? ' &middot; <span style="color:' + (grp.color || '#888') + '">' + escapeHtml(grp.label || blip.group) + '</span>'
+          : '') +
+        '</span></span>' +
+        '<span class="blip-row-coords">' + blip.x + ', ' + blip.y + '</span>' +
         '</button>';
-      html += '<div class="zone-color-dot" style="background:' + zone.color + '"></div>';
-      html += isEditing
-        ? '<input type="text" class="zone-edit-input" data-role="rename" value="' + escapeHtml(zone.name) + '" />'
-        : '<span class="zone-item-name">' + escapeHtml(zone.name) + '</span>';
-      html += '<span class="zone-point-count">' + zone.points.length + ' pts</span>';
-      html += '</div>';
-      html += '<div class="zone-item-actions">';
-      html +=
-        '<button class="zone-action-btn" data-action="visibility" title="' +
-        (zone.visible ? 'Hide' : 'Show') +
-        '">' +
-        window.Icons.icon(zone.visible ? 'eye' : 'eye-off', 14) +
-        '</button>';
-      html +=
-        '<button class="zone-action-btn" data-action="rename" title="Rename">' +
-        window.Icons.icon('edit', 14) +
-        '</button>';
-      html +=
-        '<button class="zone-action-btn zone-action-delete" data-action="delete" title="Delete">' +
-        window.Icons.icon('trash', 14) +
-        '</button>';
-      html += '</div></div>';
-
-      if (isExpanded) {
-        html += '<div class="zone-item-content">';
-        html += '<div class="zone-height-controls">';
-        html += numberField('Ground Z', zone.groundZ, 'groundZ', 0.5);
-        html += numberField('Thickness', zone.thickness, 'thickness', 0.5);
-        html += '</div>';
-
-        html += '<div class="zone-export-grid">';
-        html += exportBtn('polyzone', 'PolyZone', zone.points.length < 3);
-        html += exportBtn('oxlib', 'ox_lib', zone.points.length < 3);
-        html += exportBtn('vec2', 'vec2', zone.points.length === 0);
-        html += exportBtn('vec3', 'vec3', zone.points.length === 0);
-        html += '</div>';
-
-        if (zone.points.length) {
-          html += '<div class="zone-points-label">Points</div><div class="zone-points-list">';
-          zone.points.forEach(function (p, i) {
-            html +=
-              '<div class="zone-point-item" data-point="' + p.id + '">' +
-              '<span class="zone-point-index">' + (i + 1) + '</span>' +
-              '<span class="zone-point-coords">' + p.x + ', ' + p.y + '</span>' +
-              '<button class="zone-point-delete-btn" data-action="delete-point">' +
-              window.Icons.icon('x', 12) +
-              '</button></div>';
-          });
-          html += '</div>';
-        }
-        html += '</div>';
-      }
-      html += '</div>';
     });
 
-    zoneListEl.innerHTML = html;
-    wireZoneList();
-  }
+    listEl.innerHTML = html;
 
-  function numberField(label, value, field, step) {
-    return (
-      '<div class="number-input-container">' +
-      '<label class="number-input-label">' + label + '</label>' +
-      '<div class="number-input-wrapper">' +
-      '<input type="text" class="number-input-field" data-field="' + field + '" data-step="' + step + '" value="' + value + '" />' +
-      '<div class="number-input-buttons">' +
-      '<button type="button" class="number-input-btn increment" data-action="step-up" tabindex="-1">' +
-      window.Icons.icon('chevron-up', 12) +
-      '</button>' +
-      '<button type="button" class="number-input-btn decrement" data-action="step-down" tabindex="-1">' +
-      window.Icons.icon('chevron-down', 12) +
-      '</button>' +
-      '</div></div></div>'
-    );
-  }
-
-  function exportBtn(format, label, disabled) {
-    return (
-      '<button class="zone-export-btn" data-action="export" data-format="' + format + '"' +
-      (disabled ? ' disabled' : '') + ' title="Copy ' + label + ' code">' +
-      window.Icons.icon('copy', 12) +
-      '<span>' + label + '</span></button>'
-    );
-  }
-
-  function wireZoneList() {
-    zoneListEl.querySelectorAll('.zone-item').forEach(function (item) {
-      var zoneId = item.getAttribute('data-zone');
-
-      item.querySelector('.zone-item-header').addEventListener('click', function (e) {
-        var action = e.target.closest('[data-action]');
-        var name = action ? action.getAttribute('data-action') : null;
-        if (name === 'toggle-expand') {
-          state.expanded[zoneId] = !state.expanded[zoneId];
-          renderZoneList();
-          return;
-        }
-        if (name === 'visibility') {
-          var z = findZone(zoneId);
-          z.visible = !z.visible;
-          renderZoneList();
-          renderMap();
-          return;
-        }
-        if (name === 'rename') {
-          state.editingZoneId = zoneId;
-          renderZoneList();
-          var input = item.querySelector('[data-role="rename"]');
-          if (input) {
-            input.focus();
-            input.select();
-          }
-          return;
-        }
-        if (name === 'delete') {
-          var zone = findZone(zoneId);
-          state.zones = state.zones.filter(function (z) {
-            return z.id !== zoneId;
-          });
-          if (state.activeZoneId === zoneId) state.activeZoneId = null;
-          pushHistory();
-          render();
-          notify('Deleted zone "' + zone.name + '"', 'info');
-          return;
-        }
-        setActiveZone(state.activeZoneId === zoneId ? null : zoneId);
-        state.expanded[zoneId] = true;
-        render();
-      });
-
-      var renameInput = item.querySelector('[data-role="rename"]');
-      if (renameInput) {
-        var commit = function () {
-          var zone = findZone(zoneId);
-          var value = renameInput.value.trim();
-          if (zone && value) zone.name = value;
-          state.editingZoneId = null;
-          pushHistory();
-          renderZoneList();
-        };
-        renameInput.addEventListener('blur', commit);
-        renameInput.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') commit();
-          if (e.key === 'Escape') {
-            state.editingZoneId = null;
-            renderZoneList();
-          }
-        });
-      }
-
-      item.querySelectorAll('[data-field]').forEach(function (input) {
-        var field = input.getAttribute('data-field');
-        var step = parseFloat(input.getAttribute('data-step')) || 1;
-
-        var apply = function (value) {
-          var zone = findZone(zoneId);
-          if (!zone || isNaN(value)) return;
-          if (field === 'thickness') value = Math.max(0.5, value);
-          zone[field] = round2(value);
-          input.value = zone[field];
-        };
-
-        input.addEventListener('change', function () {
-          apply(parseFloat(input.value));
-          pushHistory();
-        });
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            apply(parseFloat(input.value) + step);
-          } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            apply(parseFloat(input.value) - step);
-          }
-        });
-
-        var wrapper = input.parentNode;
-        wrapper.querySelector('[data-action="step-up"]').addEventListener('click', function () {
-          apply(parseFloat(input.value) + step);
-          pushHistory();
-        });
-        wrapper.querySelector('[data-action="step-down"]').addEventListener('click', function () {
-          apply(parseFloat(input.value) - step);
-          pushHistory();
-        });
-      });
-
-      item.querySelectorAll('[data-action="export"]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          copyExport(findZone(zoneId), btn.getAttribute('data-format'));
-        });
-      });
-
-      item.querySelectorAll('[data-action="delete-point"]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          deletePoint(zoneId, btn.closest('[data-point]').getAttribute('data-point'));
-        });
+    listEl.querySelectorAll('[data-id]').forEach(function (row) {
+      row.addEventListener('click', function () {
+        var id = row.getAttribute('data-id');
+        var blip = state.blips.filter(function (b) {
+          return b.id === id;
+        })[0];
+        if (!blip) return;
+        state.selectedId = id;
+        map.setView(gtaToLatLng(blip.x, blip.y), Math.max(map.getZoom(), 1), { animate: true });
+        if (markers[id]) markers[id].openPopup();
+        renderList();
+        renderMarkers();
       });
     });
   }
 
-  function setActiveZone(id) {
-    state.activeZoneId = id;
-    state.selected = {};
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Indicators
-   * ------------------------------------------------------------------ */
-
-  var activeIndicator = document.getElementById('active-indicator');
-  var noActive = document.getElementById('no-active');
-  var selectionActions = document.getElementById('selection-actions');
-
-  function renderIndicators() {
-    var zone = activeZone();
-    activeIndicator.hidden = !zone;
-    noActive.hidden = !!zone;
-    if (zone) {
-      document.getElementById('active-color').style.background = zone.color;
-      document.getElementById('active-name').textContent = 'Editing: ' + zone.name;
+  function renderAccount() {
+    var box = document.getElementById('account');
+    if (!CONFIG.loginEnabled) {
+      box.innerHTML = '';
+      return;
     }
 
-    var count = selectedCount();
-    selectionActions.hidden = count === 0;
-    document.getElementById('selection-count').textContent = 'Delete ' + count + ' selected';
+    if (state.user) {
+      var groupNames = state.unlockedGroups
+        .filter(function (g) {
+          return g !== 'public';
+        })
+        .map(function (g) {
+          return (GROUPS[g] || {}).label || g;
+        });
 
-    document.getElementById('btn-snap').classList.toggle('active', state.snapToGrid);
-    document.getElementById('btn-distances').classList.toggle('active', state.showDistances);
-    document.getElementById('snap-indicator').hidden = !state.snapToGrid;
-    document.getElementById('btn-undo').disabled = state.historyIndex <= 0;
-    document.getElementById('btn-redo').disabled = state.historyIndex >= state.history.length - 1;
-    document.getElementById('btn-clear').disabled = state.zones.length === 0;
+      box.innerHTML =
+        '<div class="account-info">' +
+        '<span class="account-icon">' + window.Icons.icon('user', 14) + '</span>' +
+        '<span class="account-text"><strong>' + escapeHtml(state.user.label) + '</strong>' +
+        '<span>' + (groupNames.length ? escapeHtml(groupNames.join(', ')) : 'No extra groups') + '</span></span>' +
+        '<button class="account-btn" id="btn-logout" title="Sign out">' +
+        window.Icons.icon('log-out', 14) + '</button></div>';
+      document.getElementById('btn-logout').addEventListener('click', logout);
+    } else {
+      box.innerHTML =
+        '<button class="login-btn" id="btn-login">' +
+        window.Icons.icon('log-in', 14) + '<span>Member sign in</span></button>';
+      document.getElementById('btn-login').addEventListener('click', function () {
+        openLogin();
+      });
+    }
   }
 
-  function render() {
-    renderCreateSection();
-    renderZoneList();
-    renderIndicators();
-    renderMap();
-    renderGrid();
+  function renderAll() {
+    renderFilters();
+    renderList();
+    renderMarkers();
+    renderAccount();
   }
 
   /* ------------------------------------------------------------------ *
-   * Export / import
+   * Login
    * ------------------------------------------------------------------ */
 
-  function polyzoneCode(zone) {
-    var pts = zone.points
-      .map(function (p) {
-        return '    vector2(' + p.x + ', ' + p.y + ')';
-      })
-      .join(',\n');
-    var base = zone.groundZ || 0;
-    return (
-      'local ' + zone.name.replace(/\s+/g, '_') + ' = PolyZone:Create({\n' + pts + '\n}, {\n' +
-      '    name = "' + zone.name + '",\n' +
-      '    minZ = ' + base + ',\n' +
-      '    maxZ = ' + round2(base + zone.thickness) + '\n})'
-    );
+  var loginModal = document.getElementById('modal-login');
+  var loginError = document.getElementById('login-error');
+
+  function openLogin() {
+    loginModal.hidden = false;
+    loginError.hidden = true;
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    setTimeout(function () {
+      document.getElementById('login-user').focus();
+    }, 50);
   }
 
-  function oxlibCode(zone) {
-    var base = zone.groundZ || 0;
-    var pts = zone.points
-      .map(function (p) {
-        return '        vec3(' + p.x + ', ' + p.y + ', ' + base + ')';
-      })
-      .join(',\n');
-    return (
-      "lib.zones.poly({\n    name = '" + zone.name.replace(/\s+/g, '_') + "',\n" +
-      '    points = {\n' + pts + '\n    },\n' +
-      '    thickness = ' + zone.thickness + ',\n    debug = true\n})'
-    );
+  function closeLogin() {
+    loginModal.hidden = true;
   }
 
-  function vec2Code(zone) {
-    return zone.points
-      .map(function (p) {
-        return 'vector2(' + p.x + ', ' + p.y + ')';
+  function submitLogin() {
+    var username = document.getElementById('login-user').value.trim();
+    var password = document.getElementById('login-pass').value;
+    var btn = document.getElementById('btn-do-login');
+
+    if (!username || !password) {
+      showLoginError('Enter a username and password.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+    loginError.hidden = true;
+
+    window.ZCrypto.authenticate(window.USERS || [], username, password)
+      .then(function (session) {
+        if (!session) {
+          showLoginError('Incorrect username or password.');
+          return null;
+        }
+        return unlockGroupsFor(session).then(function () {
+          state.user = { username: session.username, label: session.label };
+          if (CONFIG.rememberSession !== false) saveSession(session);
+          closeLogin();
+          renderAll();
+          toast('Signed in as ' + session.label);
+        });
       })
-      .join(',\n');
+      .catch(function (err) {
+        console.error(err);
+        showLoginError('Something went wrong signing in.');
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      });
   }
 
-  function vec3Code(zone) {
-    var base = zone.groundZ || 0;
-    return zone.points
-      .map(function (p) {
-        return 'vector3(' + p.x + ', ' + p.y + ', ' + base + ')';
-      })
-      .join(',\n');
+  function showLoginError(message) {
+    loginError.textContent = message;
+    loginError.hidden = false;
   }
 
-  function copyExport(zone, format) {
-    if (!zone) return;
-    var map = {
-      polyzone: [polyzoneCode, 'PolyZone'],
-      oxlib: [oxlibCode, 'ox_lib'],
-      vec2: [vec2Code, 'vector2'],
-      vec3: [vec3Code, 'vector3']
-    };
-    var entry = map[format];
-    if (!entry) return;
-    copyText(entry[0](zone));
-    notify('Copied "' + zone.name + '" ' + entry[1] + ' data to clipboard');
+  function logout() {
+    state.user = null;
+    state.unlockedGroups = ['public'];
+    state.hiddenGroups = {};
+    state.selectedId = null;
+    loadPublicBlips();
+    loadPlaintextGroups();
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch (err) {
+      /* ignore */
+    }
+    renderAll();
+    toast('Signed out');
+  }
+
+  /* Session storage keeps the decrypted blips for the tab's lifetime so a
+   * refresh doesn't force a re-login. Closing the tab clears it. */
+  function saveSession(session) {
+    try {
+      var payload = {
+        username: session.username,
+        label: session.label,
+        groups: {}
+      };
+      state.unlockedGroups.forEach(function (g) {
+        if (g === 'public') return;
+        payload.groups[g] = state.blips.filter(function (b) {
+          return b.group === g;
+        });
+      });
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  function restoreSession() {
+    if (CONFIG.rememberSession === false) return false;
+    try {
+      var raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return false;
+      var payload = JSON.parse(raw);
+      Object.keys(payload.groups || {}).forEach(function (g) {
+        addGroupBlips(g, payload.groups[g]);
+      });
+      state.user = { username: payload.username, label: payload.label };
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Misc UI
+   * ------------------------------------------------------------------ */
+
+  function toast(message) {
+    var root = document.getElementById('toasts');
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = window.Icons.icon('check', 14) + '<span>' + escapeHtml(message) + '</span>';
+    root.appendChild(el);
+    setTimeout(function () {
+      el.classList.add('out');
+    }, 2400);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 2800);
   }
 
   function copyText(text) {
@@ -860,455 +561,87 @@
     document.body.removeChild(ta);
   }
 
-  function importZone(code) {
-    var points = [];
-    var re = /vec(?:tor)?([23])\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)(?:\s*,\s*(-?[\d.]+))?\s*\)/gi;
-    var match;
-    var groundZ = null;
-
-    while ((match = re.exec(code)) !== null) {
-      points.push(makePoint(parseFloat(match[2]), parseFloat(match[3])));
-      if (match[4] !== undefined && groundZ === null) groundZ = parseFloat(match[4]);
-    }
-
-    if (points.length < 3) {
-      notify('Could not find at least 3 points in that code', 'error');
-      return;
-    }
-
-    var nameMatch = code.match(/name\s*=\s*['"]([^'"]+)['"]/);
-    var thicknessMatch = code.match(/thickness\s*=\s*(-?[\d.]+)/);
-    var minZMatch = code.match(/minZ\s*=\s*(-?[\d.]+)/);
-    var maxZMatch = code.match(/maxZ\s*=\s*(-?[\d.]+)/);
-
-    var zone = createZone(nameMatch ? nameMatch[1] : 'Imported Zone', points);
-    if (thicknessMatch) zone.thickness = parseFloat(thicknessMatch[1]);
-    if (minZMatch) {
-      zone.groundZ = parseFloat(minZMatch[1]);
-      if (maxZMatch) zone.thickness = round2(parseFloat(maxZMatch[1]) - zone.groundZ);
-    } else if (groundZ !== null) {
-      zone.groundZ = groundZ;
-    }
-
-    state.zones.push(zone);
-    state.activeZoneId = zone.id;
-    state.expanded[zone.id] = true;
-    pushHistory();
-    render();
-    map.fitBounds(
-      L.latLngBounds(
-        zone.points.map(function (p) {
-          return gtaToLatLng(p.x, p.y);
-        })
-      ),
-      { padding: [80, 80] }
-    );
-    notify('Imported ' + points.length + ' points');
-  }
-
   /* ------------------------------------------------------------------ *
-   * Template shapes
+   * Wiring
    * ------------------------------------------------------------------ */
 
-  var SHAPES = {
-    rectangle: function () {
-      return [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-    },
-    circle: function () {
-      var pts = [];
-      for (var i = 0; i < 16; i++) {
-        var a = (i / 16) * Math.PI * 2;
-        pts.push([Math.cos(a), Math.sin(a)]);
-      }
-      return pts;
-    },
-    triangle: function () {
-      return regular(3);
-    },
-    pentagon: function () {
-      return regular(5);
-    },
-    hexagon: function () {
-      return regular(6);
-    },
-    star: function () {
-      var pts = [];
-      for (var i = 0; i < 10; i++) {
-        var r = i % 2 === 0 ? 1 : 0.45;
-        var a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-        pts.push([Math.cos(a) * r, Math.sin(a) * r]);
-      }
-      return pts;
-    },
-    'l-shape': function () {
-      return [[-1, -1], [1, -1], [1, -0.2], [-0.2, -0.2], [-0.2, 1], [-1, 1]];
-    }
-  };
+  document.getElementById('search').addEventListener('input', function (e) {
+    state.search = e.target.value;
+    renderList();
+    renderMarkers();
+  });
 
-  function regular(sides) {
-    var pts = [];
-    for (var i = 0; i < sides; i++) {
-      var a = (i / sides) * Math.PI * 2 - Math.PI / 2;
-      pts.push([Math.cos(a), Math.sin(a)]);
-    }
-    return pts;
-  }
-
-  var previewControls = document.getElementById('preview-controls');
-  var previewMinimizedBtn = document.getElementById('preview-minimized');
-
-  function startPreview(type) {
-    var center = map.getCenter();
-    var gta = latLngToGta(center.lat, center.lng);
-    var size = parseFloat(document.getElementById('template-size').value) || 50;
-
-    state.preview = {
-      type: type,
-      centerX: round2(gta.x),
-      centerY: round2(gta.y),
-      scale: Math.max(5, Math.min(3000, size)),
-      rotation: 0
-    };
-    state.previewMinimized = false;
-
-    document.getElementById('preview-title').textContent = type.replace('-', ' ');
-    document.getElementById('preview-scale').value = state.preview.scale;
-    document.getElementById('preview-rotation').value = 0;
-    closeModal('modal-template');
-    renderPreview();
-  }
-
-  function previewPoints() {
-    var p = state.preview;
-    var rad = (p.rotation * Math.PI) / 180;
-    return SHAPES[p.type]().map(function (unit) {
-      var x = unit[0] * p.scale;
-      var y = unit[1] * p.scale;
-      var rx = x * Math.cos(rad) - y * Math.sin(rad);
-      var ry = x * Math.sin(rad) + y * Math.cos(rad);
-      return makePoint(p.centerX + rx, p.centerY + ry);
-    });
-  }
-
-  function renderPreview() {
-    previewLayer.clearLayers();
-    previewControls.hidden = !state.preview || state.previewMinimized;
-    previewMinimizedBtn.hidden = !state.preview || !state.previewMinimized;
-    if (!state.preview) return;
-
-    var pts = previewPoints();
-    L.polygon(
-      pts.map(function (p) {
-        return gtaToLatLng(p.x, p.y);
-      }),
-      { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.25, weight: 2, dashArray: '6, 4' }
-    ).addTo(previewLayer);
-
-    var centerMarker = L.marker(gtaToLatLng(state.preview.centerX, state.preview.centerY), {
-      draggable: true,
-      icon: L.divIcon({ className: 'preview-center-marker', html: '<div></div>', iconSize: [20, 20], iconAnchor: [10, 10] })
-    }).addTo(previewLayer);
-
-    centerMarker.on('drag', function (e) {
-      var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
-      state.preview.centerX = round2(state.snapToGrid ? snap(gta.x) : gta.x);
-      state.preview.centerY = round2(state.snapToGrid ? snap(gta.y) : gta.y);
-      updatePreviewReadout();
-      renderPreviewShapeOnly();
-    });
-    centerMarker.on('dragend', renderPreview);
-
-    updatePreviewReadout();
-  }
-
-  var previewShapeLayer = null;
-  function renderPreviewShapeOnly() {
-    if (!state.preview) return;
-    if (previewShapeLayer) previewLayer.removeLayer(previewShapeLayer);
-    previewShapeLayer = L.polygon(
-      previewPoints().map(function (p) {
-        return gtaToLatLng(p.x, p.y);
-      }),
-      { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.25, weight: 2, dashArray: '6, 4' }
-    ).addTo(previewLayer);
-  }
-
-  function updatePreviewReadout() {
-    if (!state.preview) return;
-    document.getElementById('preview-x').textContent = state.preview.centerX;
-    document.getElementById('preview-y').textContent = state.preview.centerY;
-    document.getElementById('preview-scale-value').textContent = state.preview.scale;
-    document.getElementById('preview-rotation-value').textContent = state.preview.rotation + '\u00b0';
-  }
-
-  function confirmPreview() {
-    var zone = createZone(
-      state.preview.type.charAt(0).toUpperCase() + state.preview.type.slice(1).replace('-', ' '),
-      previewPoints()
-    );
-    state.zones.push(zone);
-    state.activeZoneId = zone.id;
-    state.expanded[zone.id] = true;
-    state.preview = null;
-    previewLayer.clearLayers();
-    previewShapeLayer = null;
-    pushHistory();
-    renderPreview();
-    render();
-    notify('Created ' + zone.name);
-  }
-
-  function cancelPreview() {
-    state.preview = null;
-    previewShapeLayer = null;
-    previewLayer.clearLayers();
-    renderPreview();
-    notify('Template cancelled', 'info');
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Modals
-   * ------------------------------------------------------------------ */
-
-  function openModal(id) {
-    document.getElementById(id).hidden = false;
-  }
-
-  function closeModal(id) {
-    document.getElementById(id).hidden = true;
-  }
-
-  function closeAllModals() {
-    ['modal-import', 'modal-search', 'modal-template'].forEach(closeModal);
-  }
+  document.getElementById('btn-do-login').addEventListener('click', submitLogin);
+  document.getElementById('login-pass').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submitLogin();
+  });
+  document.getElementById('login-user').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('login-pass').focus();
+  });
 
   document.querySelectorAll('[data-close]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      closeModal(btn.getAttribute('data-close'));
+      document.getElementById(btn.getAttribute('data-close')).hidden = true;
     });
   });
 
-  document.querySelectorAll('.zone-modal-overlay').forEach(function (overlay) {
-    overlay.addEventListener('mousedown', function (e) {
-      if (e.target === overlay) overlay.hidden = true;
-    });
-  });
-
-  /* ------------------------------------------------------------------ *
-   * Map interactions
-   * ------------------------------------------------------------------ */
-
-  var coordsDisplay = document.getElementById('coords-display');
-
-  map.on('mousemove', function (e) {
-    var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
-    if (state.snapToGrid) {
-      gta.x = snap(gta.x);
-      gta.y = snap(gta.y);
-    }
-    coordsDisplay.hidden = false;
-    document.getElementById('coord-x').textContent = 'X: ' + round2(gta.x);
-    document.getElementById('coord-y').textContent = 'Y: ' + round2(gta.y);
-
-    if (rubberBand && rubberBand.start) {
-      rubberBand.layer.setBounds(L.latLngBounds(rubberBand.start, e.latlng));
-    }
-  });
-
-  map.on('mouseout', function () {
-    coordsDisplay.hidden = true;
-  });
-
-  map.on('zoomend', function () {
-    document.getElementById('zoom-value').textContent = Math.round((map.getZoom() + 2) * 33) + '%';
-  });
-
-  map.on('click', function (e) {
-    if (state.preview) return;
-    var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
-    addPointToActive(gta.x, gta.y);
-  });
-
-  /* Shift + drag = box select points in the active zone. */
-  map.on('mousedown', function (e) {
-    if (!e.originalEvent.shiftKey || !state.activeZoneId) return;
-    map.dragging.disable();
-    rubberBand = {
-      start: e.latlng,
-      layer: L.rectangle(L.latLngBounds(e.latlng, e.latlng), {
-        color: '#3b82f6',
-        weight: 1,
-        dashArray: '4, 4',
-        fillOpacity: 0.1
-      }).addTo(map)
-    };
-  });
-
-  map.on('mouseup', function (e) {
-    if (!rubberBand) return;
-    var bounds = L.latLngBounds(rubberBand.start, e.latlng);
-    var zone = activeZone();
-    if (zone) {
-      zone.points.forEach(function (p) {
-        var ll = gtaToLatLng(p.x, p.y);
-        if (bounds.contains(L.latLng(ll[0], ll[1]))) state.selected[p.id] = true;
-      });
-      var count = selectedCount();
-      if (count) notify(count + ' point' + (count === 1 ? '' : 's') + ' selected', 'info');
-    }
-    map.removeLayer(rubberBand.layer);
-    rubberBand = null;
-    map.dragging.enable();
-    render();
-  });
-
-  /* ------------------------------------------------------------------ *
-   * Toolbar + global shortcuts
-   * ------------------------------------------------------------------ */
-
-  document.getElementById('btn-snap').addEventListener('click', function () {
-    state.snapToGrid = !state.snapToGrid;
-    renderIndicators();
-    renderGrid();
-  });
-
-  document.getElementById('btn-distances').addEventListener('click', function () {
-    state.showDistances = !state.showDistances;
-    renderIndicators();
-    renderMap();
-  });
-
-  document.getElementById('btn-undo').addEventListener('click', undo);
-  document.getElementById('btn-redo').addEventListener('click', redo);
-  document.getElementById('btn-import').addEventListener('click', function () {
-    openModal('modal-import');
-  });
-  document.getElementById('btn-templates').addEventListener('click', function () {
-    openModal('modal-template');
-  });
-  document.getElementById('btn-search').addEventListener('click', function () {
-    openModal('modal-search');
-  });
-
-  document.getElementById('btn-clear').addEventListener('click', function () {
-    if (!state.zones.length) return;
-    if (!window.confirm('Delete all zones? This cannot be undone.')) return;
-    state.zones = [];
-    state.activeZoneId = null;
-    state.selected = {};
-    pushHistory();
-    render();
-    notify('Cleared all zones', 'info');
-  });
-
-  document.getElementById('btn-delete-selected').addEventListener('click', function () {
-    var zone = activeZone();
-    if (!zone) return;
-    var before = zone.points.length;
-    zone.points = zone.points.filter(function (p) {
-      return !state.selected[p.id];
-    });
-    state.selected = {};
-    pushHistory();
-    render();
-    notify('Deleted ' + (before - zone.points.length) + ' points', 'info');
-  });
-
-  document.getElementById('btn-do-import').addEventListener('click', function () {
-    var code = document.getElementById('import-code').value;
-    if (!code.trim()) return;
-    importZone(code);
-    document.getElementById('import-code').value = '';
-    closeModal('modal-import');
-  });
-
-  document.getElementById('btn-do-search').addEventListener('click', function () {
-    var x = parseFloat(document.getElementById('search-x').value);
-    var y = parseFloat(document.getElementById('search-y').value);
-    if (isNaN(x) || isNaN(y)) {
-      notify('Enter valid X and Y coordinates', 'error');
-      return;
-    }
-    map.setView(gtaToLatLng(x, y), 1, { animate: true });
-    closeModal('modal-search');
-    notify('Jumped to ' + x + ', ' + y, 'info');
-  });
-
-  document.querySelectorAll('[data-template]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      startPreview(btn.getAttribute('data-template'));
-    });
-  });
-
-  document.getElementById('preview-scale').addEventListener('input', function (e) {
-    state.preview.scale = parseFloat(e.target.value);
-    updatePreviewReadout();
-    renderPreviewShapeOnly();
-  });
-
-  document.getElementById('preview-rotation').addEventListener('input', function (e) {
-    state.preview.rotation = parseFloat(e.target.value);
-    updatePreviewReadout();
-    renderPreviewShapeOnly();
-  });
-
-  document.getElementById('btn-preview-confirm').addEventListener('click', confirmPreview);
-  document.getElementById('btn-preview-cancel').addEventListener('click', cancelPreview);
-  document.getElementById('btn-preview-hide').addEventListener('click', function () {
-    state.previewMinimized = true;
-    previewControls.hidden = true;
-    previewMinimizedBtn.hidden = false;
-  });
-  previewMinimizedBtn.addEventListener('click', function () {
-    state.previewMinimized = false;
-    previewControls.hidden = false;
-    previewMinimizedBtn.hidden = true;
+  loginModal.addEventListener('mousedown', function (e) {
+    if (e.target === loginModal) closeLogin();
   });
 
   window.addEventListener('keydown', function (e) {
-    var tag = e.target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-    if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
-        e.preventDefault();
-        redo();
-      } else if (e.key === 'f') {
-        e.preventDefault();
-        openModal('modal-search');
-      }
-      return;
-    }
-
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      var zone = activeZone();
-      if (zone && zone.points.length) {
-        zone.points.pop();
-        pushHistory();
-        render();
-      }
-    } else if (e.key === 'g' || e.key === 'G') {
-      document.getElementById('btn-snap').click();
-    } else if (e.key === 'd' || e.key === 'D') {
-      document.getElementById('btn-distances').click();
-    } else if (e.key === 'Escape') {
-      closeAllModals();
-      if (state.preview) cancelPreview();
-    }
+    if (e.key === 'Escape') closeLogin();
   });
+
+  /* Copy button inside marker popups. */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('.blip-copy-btn');
+    if (!btn) return;
+    copyText(btn.getAttribute('data-coords'));
+    toast('Coordinates copied');
+  });
+
+  var coordsEl = document.getElementById('coords');
+  if (CONFIG.showCoords !== false) {
+    map.on('mousemove', function (e) {
+      var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
+      coordsEl.hidden = false;
+      coordsEl.textContent = 'X: ' + round2(gta.x) + '   Y: ' + round2(gta.y);
+    });
+    map.on('mouseout', function () {
+      coordsEl.hidden = true;
+    });
+  }
+
+  if (CONFIG.copyCoordsOnRightClick) {
+    map.on('contextmenu', function (e) {
+      var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
+      copyText(round2(gta.x) + ', ' + round2(gta.y));
+      toast('Copied ' + round2(gta.x) + ', ' + round2(gta.y));
+    });
+  }
 
   /* ------------------------------------------------------------------ *
    * Boot
    * ------------------------------------------------------------------ */
 
-  window.Icons.hydrate(document);
-  render();
-  document.getElementById('zoom-value').textContent = Math.round((map.getZoom() + 2) * 33) + '%';
+  document.title = CONFIG.siteName || 'Blip Map';
+  document.getElementById('site-name').textContent = CONFIG.siteName || 'Blip Map';
+  var taglineEl = document.getElementById('tagline');
+  if (CONFIG.tagline) taglineEl.textContent = CONFIG.tagline;
+  else taglineEl.hidden = true;
 
-  if (state.zones.length) {
-    notify('Restored ' + state.zones.length + ' zone' + (state.zones.length === 1 ? '' : 's') + ' from this browser', 'info');
-  }
+  var footerEl = document.getElementById('footer-note');
+  if (CONFIG.footerNote) footerEl.textContent = CONFIG.footerNote;
+  else footerEl.hidden = true;
+
+  var headerLink = document.getElementById('header-link');
+  if (CONFIG.headerLink) headerLink.href = CONFIG.headerLink;
+  else headerLink.hidden = true;
+
+  window.Icons.hydrate(document);
+  loadPublicBlips();
+  loadPlaintextGroups();
+  restoreSession();
+  renderAll();
 })();

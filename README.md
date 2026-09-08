@@ -1,118 +1,115 @@
-# Zone Creator (web)
+# Blip Map
 
-> Draw polygon zones on an interactive GTA V satellite map and export them as PolyZone, ox_lib, vector2 or vector3 code. Plain HTML, CSS and JavaScript — no build step, no framework, no TypeScript.
+A read-only map of server locations. Anyone can open it and see the public blips. Members sign in to reveal blips shared with their group.
 
-**Live site:** https://YOUR-USERNAME.github.io/YOUR-REPO/
+Plain HTML, CSS and JavaScript. No build step, no backend, no dependencies to install.
 
-Everything runs in the browser. There is no backend and nothing is uploaded anywhere — your zones are stored in `localStorage` on your own machine.
+## The three files you control
 
-## Deploying to GitHub Pages
+Everything you manage lives in `data/`:
 
-Because there is nothing to compile, the files you commit are the files the browser loads. That means the simplest Pages setup works:
+| File | What it does |
+|---|---|
+| `data/config.js` | Site name, categories, colours, groups, default map position, feature toggles |
+| `data/blips.js` | Public blips (plain text) and group blips (encrypted) |
+| `data/users.js` | Member accounts — salts, verifiers and wrapped group keys |
 
-1. Push these files to your repo (`index.html` must sit at the repo root).
-2. **Settings → Pages → Source → Deploy from a branch**.
-3. Branch: `main`, folder: **/ (root)**. Save.
-4. Wait a minute, then open the URL Pages gives you.
+Edit, commit, push. The site picks up the changes on the next Pages build.
 
-No Actions workflow, no `dist/` folder, nothing to configure. If you edit a file and push, the change is live after the next Pages build.
+## About hiding these files
 
-Every path in `index.html` is relative (`css/styles.css`, `js/app.js`, `assets/gta_map.jpg`), so the site works at a project subpath, a user site, or any static host — Netlify, Cloudflare Pages, nginx, or just opening `index.html` from disk.
+**They can't be hidden.** GitHub Pages serves your repo as a public static site, so anything the browser loads, a visitor can load too. `.gitignore` doesn't help either: an ignored file never gets deployed, so the site couldn't read it.
+
+So instead of hiding the file, the **contents are encrypted**. Group blips live in `blips.js` as a base64 blob. Without the group's key it's noise. The login derives that key from the member's password, decrypts the blips in the browser, and shows them. A visitor reading `blips.js` sees ciphertext, not your safehouse coordinates.
+
+The same goes for `users.js` — it holds no passwords, just a random salt per user, a verifier derived from their password, and the group keys wrapped with it. A wrong password fails the verifier and unwraps nothing.
+
+What this does **not** protect against: someone who has a valid login can read everything that account unlocks, and could pass it on. Security here is exactly as good as your passwords and who you give them to.
+
+## Adding blips
+
+**Public blips** — edit the `public` array in `data/blips.js` directly:
+
+```js
+{
+  name: 'Legion Square',
+  category: 'general',       // a key from config.js
+  x: 195.0,
+  y: -934.0,
+  z: 30.7,                   // optional
+  description: 'Central meeting spot.'   // optional
+}
+```
+
+Coordinates are game coordinates. Right-click anywhere on the map to copy the coordinates under your cursor.
+
+**Group blips** — these have to be encrypted, so open `tools/admin.html` in your browser (locally, or from the deployed site — it does everything in-page and sends nothing anywhere):
+
+1. **Step 1** — generate a key for the group. Save it somewhere safe; you need it every time.
+2. **Step 2** — paste that key and the group's blips as a JSON array. Copy the output into the `groups` section of `data/blips.js`.
+3. **Step 3** — create each member's account with their password and the group keys they should get. Copy the output into the array in `data/users.js`.
+
+Adding a blip to a group means re-running step 2 with the full list for that group and replacing the blob. Existing members keep working — the key hasn't changed.
+
+## Managing members
+
+- **Add someone**: step 3 in the admin tool, paste the record into `data/users.js`.
+- **Remove someone**: delete their record. They can't log in any more.
+- **Lock someone out properly**: deleting their record stops future logins, but if they saved the group key they can still decrypt an old copy of `blips.js`. To be certain, generate a new key for the group (step 1), re-encrypt its blips (step 2), and re-issue records for everyone who should still have access (step 3).
+- **Change a password**: re-run step 3 for that user with the same group keys and replace their record.
+
+The demo file ships with three accounts — `admin` / `changeme`, `officer` / `police123`, `crew` / `crew123`. Replace them before you go live.
+
+## Groups and categories
+
+Both are defined in `data/config.js`.
+
+**Categories** control the icon and colour of a blip and give visitors filter chips:
+
+```js
+categories: {
+  housing: { label: 'Housing', icon: 'house', color: '#f59e0b' },
+  secret:  { label: 'Secret Spots', icon: 'star', color: '#ec4899', hidden: true }
+}
+```
+
+`hidden: true` starts that category toggled off. Icon names come from `js/icons.js` — `map-pin`, `house`, `shop`, `car`, `briefcase`, `star`, `flag`, `anchor`, `lock`, `key` are all available, and adding your own is a matter of pasting an SVG path in.
+
+**Groups** just need a label and colour. The key must match the group name used in `blips.js` and in the admin tool. `public` is built in — leave it there.
+
+Other switches in `config.js`: `loginEnabled` (set false for a purely public map), `rememberSession`, `copyCoordsOnRightClick`, `showCoords`, `defaultView`, `siteName`, `tagline`, `footerNote`.
+
+## Deploying
+
+1. Push these files to your repo with `index.html` at the root.
+2. **Settings → Pages → Source → Deploy from a branch**, branch `main`, folder **/ (root)**.
+
+There's nothing to build, so no Actions workflow is needed — and if an old one is still in `.github/workflows`, delete it or it'll keep failing on the missing lockfile.
 
 ## Running locally
 
-Open `index.html` in a browser, or serve the folder if you prefer:
-
 ```bash
 python3 -m http.server 8000
-# then visit http://localhost:8000
 ```
 
-A plain `file://` open works too, though the clipboard falls back to `document.execCommand('copy')` outside a secure context.
+Then open `http://localhost:8000`. Use a server rather than opening `index.html` from disk: WebCrypto only works in a secure context, so logins fail on `file://`.
 
 ## Files
 
 ```
-index.html          markup and modals
-css/styles.css      all styling
-js/icons.js         inline SVG icon set
-js/app.js           the whole application
-assets/gta_map.jpg  satellite map (4096 x 6144)
-vendor/leaflet/     Leaflet 1.9.4, vendored so there's no CDN dependency
+index.html              the map page
+css/styles.css          all styling
+js/app.js               map, filters, list, login flow
+js/crypto.js            key derivation and decryption
+js/icons.js             inline SVG icons
+data/config.js          settings          <- you edit
+data/blips.js           blips             <- you edit
+data/users.js           accounts          <- you edit (via the admin tool)
+tools/admin.html        key / account / encryption generator
+assets/gta_map.jpg      satellite map
+vendor/leaflet/         Leaflet 1.9.4, vendored
 ```
-
-## Features
-
-- **Interactive map** — click to place points on a high-resolution satellite map
-- **Multiple export formats** — PolyZone, ox_lib, vector2, vector3, copied to clipboard
-- **Import** — paste existing zone code to edit and visualise it; name, thickness and minZ/maxZ are read out of the code where present
-- **Template shapes** — rectangle, circle, triangle, pentagon, hexagon, star, L-shape, each with size and rotation sliders and a draggable centre
-- **Grid snapping** — grid overlay with 10-unit snapping
-- **Multi-zone** — build several zones in one session, each with its own colour, thickness and ground Z
-- **Autosave** — zones persist across refreshes in `localStorage`
-
-### Point editing
-
-| Action | How |
-|---|---|
-| Add point | Click the map |
-| Move point | Drag the marker |
-| Delete point | Right-click the marker |
-| Insert on an edge | Click the polygon outline |
-| Select points | Shift + drag a box |
-| Toggle one point's selection | Ctrl + click the marker |
-| Remove last point | `Delete` or `Backspace` |
-
-### Shortcuts
-
-| Key | Action |
-|---|---|
-| `G` | Snap to grid |
-| `D` | Show distances |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Y` | Redo |
-| `Ctrl+F` | Jump to coordinates |
-| `Esc` | Close modal / cancel template |
-
-## Export examples
-
-**PolyZone**
-
-```lua
-local myZone = PolyZone:Create({
-    vector2(100.0, 200.0),
-    vector2(150.0, 200.0),
-    vector2(150.0, 250.0),
-    vector2(100.0, 250.0)
-}, {
-    name = "myZone",
-    minZ = 0,
-    maxZ = 150
-})
-```
-
-**ox_lib**
-
-```lua
-lib.zones.poly({
-    name = 'myZone',
-    points = {
-        vec3(100.0, 200.0, 0),
-        vec3(150.0, 200.0, 0),
-        vec3(150.0, 250.0, 0),
-        vec3(100.0, 250.0, 0)
-    },
-    thickness = 150,
-    debug = true
-})
-```
-
-## Not included
-
-Three features from the original FiveM resource needed the game client and have no browser equivalent: the 3D free-fly zone viewer, automatic ground-Z sampling, and the live player-position marker. Ground Z is entered manually per zone, and `Ctrl+F` covers jumping to a known coordinate.
 
 ## Credits
 
-Based on the original tool by SD ([Samuels-Development](https://github.com/Samuels-Development)). Map rendering by [Leaflet](https://leafletjs.com/). Icons are hand-rolled SVG in the style of [Lucide](https://lucide.dev/).
-
-See [LICENSE](LICENSE).
+Map rendering by [Leaflet](https://leafletjs.com/). Map coordinate conversion from the original zone creator by SD ([Samuels-Development](https://github.com/Samuels-Development)). See [LICENSE](LICENSE).

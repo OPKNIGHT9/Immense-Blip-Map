@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blip Map — Admin Tool</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+  </head>
+  <body>
+    <div class="tool-page">
+      <div class="tool-inner">
+        <h1>Admin tool</h1>
+        <p>
+          Generates the contents of <code>data/blips.js</code> and <code>data/users.js</code>. Everything
+          runs in this page — nothing is sent anywhere. Run it locally and paste the output into the data
+          files, then commit.
+        </p>
+
+        <div class="note">
+          Keep your group keys somewhere safe (a password manager). You need a group's key to encrypt new
+          blips for it or to add another member. If you lose it, you have to generate a new key and
+          re-encrypt that group's blips, which locks out everyone holding the old one.
+        </div>
+
+        <!-- 1. Group key -->
+        <div class="card">
+          <h2>1. Group key</h2>
+          <p>
+            Each group needs one key. Generate it once, save it, and reuse it whenever you re-encrypt that
+            group's blips or add a member.
+          </p>
+          <div class="row">
+            <label class="field">
+              <span>Group name (lowercase, matches config.js)</span>
+              <input type="text" id="key-group" placeholder="police" />
+            </label>
+            <button class="btn primary" id="btn-genkey">Generate key</button>
+          </div>
+          <div class="output" id="key-out" hidden></div>
+        </div>
+
+        <!-- 2. Encrypt blips -->
+        <div class="card">
+          <h2>2. Encrypt a group's blips</h2>
+          <p>
+            Paste the blips as a JSON array. The output goes into the <code>groups</code> section of
+            <code>data/blips.js</code>.
+          </p>
+          <label class="field">
+            <span>Group name</span>
+            <input type="text" id="enc-group" placeholder="police" />
+          </label>
+          <label class="field">
+            <span>Group key (hex, from step 1)</span>
+            <input type="text" id="enc-key" placeholder="a1b2c3..." />
+          </label>
+          <label class="field">
+            <span>Blips (JSON array)</span>
+            <textarea id="enc-blips" rows="10">[
+  {
+    "name": "Safehouse",
+    "category": "housing",
+    "x": 1234.5,
+    "y": -567.8,
+    "z": 25.0,
+    "description": "Back entrance only."
+  }
+]</textarea>
+          </label>
+          <button class="btn primary" id="btn-encrypt">Encrypt</button>
+          <div class="output" id="enc-out" hidden></div>
+        </div>
+
+        <!-- 3. Create user -->
+        <div class="card">
+          <h2>3. Create a member account</h2>
+          <p>
+            Produces one record for <code>data/users.js</code>. The password is never stored — only a
+            verifier and the group keys wrapped with it.
+          </p>
+          <div class="row">
+            <label class="field">
+              <span>Username</span>
+              <input type="text" id="user-name" placeholder="dave" />
+            </label>
+            <label class="field">
+              <span>Display name (optional)</span>
+              <input type="text" id="user-label" placeholder="Dave" />
+            </label>
+          </div>
+          <label class="field" style="margin-top: 12px">
+            <span>Password</span>
+            <input type="text" id="user-pass" placeholder="pick something long" />
+          </label>
+          <label class="field">
+            <span>Groups — one per line, as <code>name: key</code></span>
+            <textarea id="user-groups" rows="4" placeholder="police: a1b2c3...&#10;crew: d4e5f6..."></textarea>
+          </label>
+          <button class="btn primary" id="btn-makeuser">Create record</button>
+          <div class="output" id="user-out" hidden></div>
+        </div>
+
+        <!-- 4. Decrypt / verify -->
+        <div class="card">
+          <h2>4. Check an encrypted payload</h2>
+          <p>Paste a group key and its encrypted string to confirm it decrypts to what you expect.</p>
+          <label class="field">
+            <span>Group key (hex)</span>
+            <input type="text" id="dec-key" />
+          </label>
+          <label class="field">
+            <span>Encrypted payload (base64)</span>
+            <textarea id="dec-payload" rows="4"></textarea>
+          </label>
+          <button class="btn primary" id="btn-decrypt">Decrypt</button>
+          <div class="output" id="dec-out" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="../js/crypto.js"></script>
+    <script>
+      (function () {
+        'use strict';
+
+        var Z = window.ZCrypto;
+
+        function show(id, text) {
+          var el = document.getElementById(id);
+          el.hidden = false;
+          el.textContent = text;
+        }
+
+        function fail(id, message) {
+          var el = document.getElementById(id);
+          el.hidden = false;
+          el.textContent = 'Error: ' + message;
+        }
+
+        /* 1. group key */
+        document.getElementById('btn-genkey').addEventListener('click', function () {
+          var group = document.getElementById('key-group').value.trim() || 'group';
+          var key = Z.bytesToHex(Z.newGroupKey());
+          show(
+            'key-out',
+            'Group: ' + group + '\nKey:   ' + key + '\n\nSave this key. You need it for steps 2 and 3.'
+          );
+        });
+
+        /* 2. encrypt blips */
+        document.getElementById('btn-encrypt').addEventListener('click', function () {
+          var group = document.getElementById('enc-group').value.trim();
+          var keyHex = document.getElementById('enc-key').value.trim();
+          var raw = document.getElementById('enc-blips').value;
+
+          if (!group) return fail('enc-out', 'enter a group name.');
+          if (!/^[0-9a-f]{64}$/i.test(keyHex)) return fail('enc-out', 'the key should be 64 hex characters.');
+
+          var parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (err) {
+            return fail('enc-out', 'the blips are not valid JSON — ' + err.message);
+          }
+          if (!Array.isArray(parsed)) return fail('enc-out', 'the blips should be a JSON array.');
+
+          Z.importGroupKey(Z.hexToBytes(keyHex))
+            .then(function (key) {
+              return Z.encryptText(key, JSON.stringify(parsed));
+            })
+            .then(function (payload) {
+              show(
+                'enc-out',
+                'Paste this inside the "groups" object in data/blips.js:\n\n' +
+                  '    ' + group + ': {\n' +
+                  '      encrypted: "' + payload + '"\n' +
+                  '    }'
+              );
+            })
+            .catch(function (err) {
+              fail('enc-out', err.message);
+            });
+        });
+
+        /* 3. user record */
+        document.getElementById('btn-makeuser').addEventListener('click', function () {
+          var username = document.getElementById('user-name').value.trim();
+          var label = document.getElementById('user-label').value.trim();
+          var password = document.getElementById('user-pass').value;
+          var lines = document.getElementById('user-groups').value.split('\n');
+
+          if (!username) return fail('user-out', 'enter a username.');
+          if (!password) return fail('user-out', 'enter a password.');
+
+          var grants = [];
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) continue;
+            var parts = line.split(':');
+            if (parts.length < 2) return fail('user-out', 'line ' + (i + 1) + ' should look like "police: a1b2...".');
+            var name = parts[0].trim();
+            var keyHex = parts.slice(1).join(':').trim();
+            if (!/^[0-9a-f]{64}$/i.test(keyHex)) {
+              return fail('user-out', 'the key for "' + name + '" should be 64 hex characters.');
+            }
+            grants.push({ name: name, keyHex: keyHex });
+          }
+
+          var salt = Z.bytesToHex(Z.randomBytes(16));
+          show('user-out', 'Working... (key derivation is deliberately slow)');
+
+          Z.deriveFromPassword(password, salt)
+            .then(function (derived) {
+              var wrapped = {};
+              return grants
+                .reduce(function (chain, grant) {
+                  return chain
+                    .then(function () {
+                      return Z.encrypt(derived.wrapKey, Z.hexToBytes(grant.keyHex));
+                    })
+                    .then(function (payload) {
+                      wrapped[grant.name] = payload;
+                    });
+                }, Promise.resolve())
+                .then(function () {
+                  var record = {
+                    username: username,
+                    label: label || username,
+                    salt: salt,
+                    verifier: derived.verifier,
+                    keys: wrapped
+                  };
+                  show(
+                    'user-out',
+                    'Add this to the array in data/users.js:\n\n' + JSON.stringify(record, null, 2)
+                  );
+                });
+            })
+            .catch(function (err) {
+              fail('user-out', err.message);
+            });
+        });
+
+        /* 4. decrypt check */
+        document.getElementById('btn-decrypt').addEventListener('click', function () {
+          var keyHex = document.getElementById('dec-key').value.trim();
+          var payload = document.getElementById('dec-payload').value.trim();
+          if (!/^[0-9a-f]{64}$/i.test(keyHex)) return fail('dec-out', 'the key should be 64 hex characters.');
+
+          Z.importGroupKey(Z.hexToBytes(keyHex))
+            .then(function (key) {
+              return Z.decryptText(key, payload);
+            })
+            .then(function (text) {
+              show('dec-out', text);
+            })
+            .catch(function () {
+              fail('dec-out', 'could not decrypt — wrong key or corrupted payload.');
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>
