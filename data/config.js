@@ -35,9 +35,11 @@ window.CONFIG = {
    * Coordinates are appended as floats. Heading is never included. */
   tpCommand: '/tp',
 
-  /* Draw connector lines between linked blips on load. Users can toggle
-   * this from the map controls regardless. */
+  /* Starting state of the three map toggles. All three can be flipped
+   * from the buttons in the top-left of the map. */
   connectionsOn: true,
+  showPins: true,
+  showZones: true,
 
   /* ---------------------------------------------------------------- *
    * SECTIONS — how blips are organised in the sidebar, navbar-style.

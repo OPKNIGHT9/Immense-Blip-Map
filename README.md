@@ -53,7 +53,31 @@ Coordinates are game coordinates. Right-click anywhere on the map to copy the co
 
 **Connectors.** Set `connections` to an array of other blips' `id` values and a dashed line is drawn between them. Lines only appear when both ends are visible, so hiding a section hides its lines too. The link button on the map toggles all of them; `connectionsOn` in `config.js` sets the starting state.
 
-Selecting a blip lights up its connectors and lists everything it links to at the bottom of the popup — click any of those to jump straight there. Links are read in both directions, so a blip shows up in its partner's list even if only one side declares the connection.
+Selecting a blip lights up its connectors and lists everything it links to at the bottom of the popup — click any of those to jump straight there. Links are read in both directions, so a blip shows up in its partner's list even if only one side declares the connection. Past three entries the list scrolls rather than stretching the popup.
+
+Clicking a connector line itself opens a popup naming what it joins, with the same clickable list.
+
+**Connector groups.** To wire several blips together without writing every pair by hand, add a `connectors` array alongside `public` in `blips.js`:
+
+```js
+connectors: [
+  {
+    id: 'fuel-network',
+    name: 'Fuel Network',
+    color: '#93c5fd',
+    mode: 'mesh',            // 'mesh' | 'chain' | 'hub'
+    members: ['ls-fuel-strawberry', 'ls-fuel-sandy', 'lsc-la-mesa']
+  }
+]
+```
+
+| mode | Lines drawn |
+|---|---|
+| `mesh` | Every member to every other member |
+| `chain` | Each member to the next, in order |
+| `hub` | The first member to all the rest |
+
+Selecting any member lights the whole group. Group connectors work inside encrypted group payloads too — see below.
 
 **Zones.** Give a blip a `points` array of three or more coordinate pairs and it renders as a filled area instead of a pin:
 
@@ -76,10 +100,12 @@ Selecting a blip lights up its connectors and lists everything it links to at th
 
 `[x, y]` pairs work as well as `{x, y}` objects. The marker sits at the polygon's centroid unless you also give `x` and `y` to pin it somewhere specific — and that anchor is what the coordinate buttons and any connectors use. Zones behave like any other blip otherwise: they filter, search, connect and appear in the list.
 
+Selecting a zone shows numbered markers on each of its vertices, and lists those points in the popup. Clicking a point copies its coordinates and pans to it.
+
 **Group blips** — these have to be encrypted, so open `tools/admin.html` in your browser (locally, or from the deployed site — it does everything in-page and sends nothing anywhere):
 
 1. **Step 1** — generate a key for the group. Save it somewhere safe; you need it every time.
-2. **Step 2** — paste that key and the group's blips as a JSON array. Copy the output into the `groups` section of `data/blips.js`.
+2. **Step 2** — paste that key and the group's blips as a JSON array. Copy the output into the `groups` section of `data/blips.js`. To give a group its own connectors, encrypt an object instead of an array: `{ "blips": [...], "connectors": [...] }`.
 3. **Step 3** — create each member's account with their password and the group keys they should get. Copy the output into the array in `data/users.js`.
 
 Adding a blip to a group means re-running step 2 with the full list for that group and replacing the blob. Existing members keep working — the key hasn't changed.
@@ -143,7 +169,9 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 
 | Control | What it does |
 |---|---|
-| Link button (top left) | Show or hide connector lines |
+| Pin button (top left) | Show or hide all pin blips |
+| Polygon button | Show or hide all zones |
+| Link button | Show or hide connector lines |
 | Crosshair button | Jump to coordinates |
 | `Ctrl+F` | Same jump dialog — accepts `123, -456` or a whole `vector3(...)` pasted into the X field |
 | Right-click the map | Copy the coordinates under the cursor |

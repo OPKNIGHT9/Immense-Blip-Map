@@ -332,15 +332,45 @@ window.BLIPS = {
     }
   ],
 
+  /* Connector groups link several blips at once. mode: 'mesh' (every
+   * pair), 'chain' (in order) or 'hub' (first to all the rest). */
+  connectors: [
+    {
+      "id": "fuel-network",
+      "name": "Fuel Network",
+      "color": "#93c5fd",
+      "mode": "mesh",
+      "members": [
+        "ls-fuel-strawberry",
+        "ls-fuel-sandy",
+        "lsc-la-mesa",
+        "lsc-burton"
+      ]
+    },
+    {
+      "id": "transport-run",
+      "name": "Cargo Run",
+      "color": "#06b6d4",
+      "mode": "chain",
+      "members": [
+        "docks-warehouse",
+        "lsia",
+        "sandy-airfield",
+        "grapeseed-farm",
+        "quarry"
+      ]
+    }
+  ],
+
   groups: {
     /* Encrypted with each group's key. Regenerate via tools/admin.html
      * whenever you add or change a group's blips. */
     police: {
-      encrypted: "SfhL8mqVQKguTrHg3OUx2N4e2gOjNOFD6HJWgQCgYKPFMz1JN+6XXnRv//f4bAKlm6ysckx2mRZxqZ4DPFBfS6LDg/7DprqK1DUEWpZTfe4rOyg5c4pEFW8X3QNBOw4ltAuBJlTFzuFS/fk7QW68qvtwRYIiURJXj0aa1y03EgZRtQzbzCCmm3pJKAbU2GtgOe8JOXHRzssHrA/6rdI0Bt+RmEBWc3cY0qmCvkdkGRw12tTUxrUCDIbbQD+S19QhHR+OIQy+Wk7jWNKqqh6YCJjuy1lQFMCsitpv6IqOmf7F+TVcjE+2X19InijCms0+gpJPlbBSl/1jOKX1FXfwjVyjp/XbGbWwlSOf6bbvrfOoSU9Pq/489ZDO3IcSNQGH8hC7PfPlWRFLvhNb7yuvSONEiuEjdE8gxJySK++R7VY0UyvfXfVjbE94iJlpjAs+gDT7kDwQexp5y/1BxzrPE4uev94QbBI+sUeXLkAFuFUvAZHwavQPK+CsgCdwfB9ifXs56fFCQqfxgF1U68BTQnZOh2hU2foedVD/aaBlEHqOD+Yd/fDzKrcRH4hzfQyLd5u4viGjqGnMaNi8HvEiv5K4ugyzkuxFPAdbUEcPiB2DlTZ/YSqbF9E71nIJ0eQUKlOoH+IMBceLRybVAnuHQtnoTJ835s5beOpaRtei79N5o4xBkebUiiVlgMK9f1jD/0HiML7oMVhfhibrkcumASH0vokzisw9NcvZqnezbLHt4wyJocA+wjgIXwijwVQm8f0z4CUyHFc="
+      encrypted: "vBLf7FqsPIymKX2hDiSvHSlBNBFSYaxwvrrE8wIkBSWu/6valGtrltnwgxc2uiKNdUgG96LD9nbJOuWWhLRT0wnFBvoM8WNhJjR50X/Ev+6VYbJWuGPN9tTZSUHUl1xNs1RXAoS7VibXDHcjGMRo2pgBVPAVTbfQppwYdKW1KyHi/IZNRh1uYSbEQhUoEEKm57+KGLP2qiM0Nw6U9aeTSLCMPjslew/RUGtEDIGNRXYoTtsV1cv5C4W2dtmK+pLPCdIkBbIOE6tPKUHz+XQrxbs9RT59mT7mxDRejkym6BMu3x3GwrIBM7v6RA37TWhr2XdU1US6mz5Dek8joMQ3TpEJOMN54yvE6/0RhaBbiGUudhKBWeY8+sWgLZtWuaWs/kroMNMaWA0YSkeMaVYX7f1WxV3XaBJHBUSsYrIqyD/MzjG3f4vNZ6Ygy2zbpj/4rzQh3gg1NjBUte+7kqMZfcC2rQp27kdXsBL8+39zWKvOlGEDMyqN4vHxOEn1v90IsWlljWWJp579ECGI4X2v8n1drOyUi8NlTKZqOnivp274Vp9r8LH9aBgUHW4F1uc8JFCSHBFjgECX/mwjS1ii/G5UVwi7IKlPurc9OljV3c8GuDWn9UKMdqaRFFeNpGKpHG0q+FCjIAFk1zHB6XIy9GbqAzRjpXtzZK4l0ioAm70rop3j8YMXFpBHWFPnqSHbWufW0wgkz5buEsf/45c7yf3PUDOLPHkf85eKwyLC/FhQeYFRBVq2GG25hb94JK4MnsP21PE5prBAqCANBBkNQUJWvrYCKB4ETwphKO+ZR2XxoA=="
     },
 
     crew: {
-      encrypted: "nE73xX/kGjeOKXvCq2co1z/zx9c8Dy4LsLuLy2Bb4gK2yDGgt+mchM6aNAI51Ka4g4nBh0qXQP/7BVl8Ebmhw5N0l1UF/uyQ1TCgCogb3jW6wu39bsj66NPuXOs+FQjEsLE2/23FN03FRtc/h6n/0YSTO1FzgX5gAyfxIs4gHWHyYrQF2D+pypB0RJ/nCXvEGBUVz0+9EmaFG54HKn9/kxbobp+fvIG1rN7sRSW/6Rq5Zwg5vI/ihpqXnLNfo+KlISq38sH1m5ZAvALNvyta/7YBu4Jmvt3nlMFEqJTUP0QuSeVix3Vjntu3Mg/e0o7qzRbsW85qpr0NT8CjDnhKIPG38fuRiYg+0zoUd84BayhQbNMYjSZu83a2oUEI3fUR4M2YQoHXQ4ndGuSMYU/cGd4qUI2C3MVmLdKXY2aEqT9Vpz2zb+SJQRDFgpJmZhe2nEU3BNqRiQpfw9OKmmGCT3DOtm3wbOe5d+mLionnCjcmdkb+QshjZVZ2sTAzFiT/b7PeK2R0IjG9TC5266NuLLR5BLUd2qdCIM2C/A96Kmy8DGjWg5ABfd0/w4MFF0YLt0O8YdsD9leRsi7k2/v/hdbsY5f3ZF+7wvyxoMxQZigiiMwVRx3Y56x331m8V8px8wrU+qChoHrx+Li0oTxqFZpWot8Mxtrd7/Qjk7ltTSSve3M05aJY+thWP50W/evGqXTvQVtIWIqufpqrKn5btUEyVspZLrIvMH0d5vaOMSHbFSIsm2/PYGKS0sh+6GKGO1d3Hqp9qbto0I8uwU52netSdY0SwkwxDrhM+5FPC4fZBVn8cWiLm4gJAk2YwY9BR7FWaPML0j7euO1l2Eh2D7qA3/TbRnuMnvMblN7RnDqaXPZU9MGlFwiBmiWkrFtAmRtwueCpaZsS0F1VDNp4y9sH1SoikG6cnDc/GL4/GY0/xTfqLrumK7XAWwGsBpyupZxSRfndoDfS+6uHEIEnX6XdBA=="
+      encrypted: "e4w5pUjHd8kr7EEdoM+e1QVzoOdyYv+lAnkZv99KpJisnY1LUulSLoQcKyJEPOGkQi6rMwu7MySgnpxBfEKvqEP8PTyv7G3tEPecb1TdxL2/EYNwAKmWRZ5ivlAZQUBwE2wGJ7t0xLBfiiVWoxZNZZXyzioUKyS+cwYVU9rNlLxE2pXXMfTEDhW8AgakVoH97k4D8y6KEXbg8V1llhL1UMa+V7sHUzmVxyuVHZSVVuoZeawZ6Oxs98tCzN4g34tNZOKXqXJtVc//DyBJNQJL9XfTpon/5pdxQhMFHJNKKAbVgnwJDH+sznCjwuAa9tb4zLEKJSYKAGjHxu6U/762U7XrygHeaDcU463oVSzSAh1FPVYzkgaK8CyN742IKkCoBD/Ll+pXOkNYYb4+UFw3Val2o6kU2NBtwZZ2+qnHlrxW+V/N+qxxxvaVyg4iOBppfdqX72o2ekZyMtsE7URxU2s7oriQDW4cW2Nz8IWzwhMyfNK5CmYlkjYwj6SpMQgF5kzmEpiV39bQz8vct36fxTL68CttEcdjq06/VK8BJ763JevsSWBQQ2XrWSZXyh4hRlTa7m0aSMi1QdYU1mhS55ZHXplOzp0Tis0KkKG+Sb4udkDGcpfMmFkjmT0O8173bv1tWJoNzF8Q0oyQ2mPUzWadLF43J+27LjI0Xas+OToXk7AKmPvbe1EPMWIKtF4GQzQikDsbR2O/bam45g92koDUQjVSXDrkwCTeO1ovU6SMX/NzOYmRxjik/xkAVLMWIl3nS6lpkOVedh35opFUHA9wRiPptuTdm2Qkere3mM9/1lIkcmqxGwNcEw5T2DY+zCpBxn+5uUXz1cgcjZhU5wf+cmdq4w9SkAbr36XX+A40C2fhlRoBa7Ypo01gs12DjmXjdJa1AOKwi6Krd0a5z+6AEzVlumhoIj/gqjh2Z50I/uepQgyVb/HITn2dyDHwyTfu4QWCsEHFzwpIkKDHUlzzkJzZpaZCjqXt5nY8skifJq0uELdFwp1MGfCZGt7JL+guVmvdDdt6VKbPqIWUCsoXGFdfH3KRPsGZ/LoTy1V8RbUfCzVYLLPtTAWJGvoT33TkxrrlXAPDoznBCO8VFs0gVXyd/Hv/geN8kwXDBZEAgbpqafdF+tQqp6dW4J1e9iik2eMqepISadE03mOIDK7RQ60XdpxfDlhvWuBxwtfRshF9dRD7KVBVwzE="
     }
 
     /* While setting things up you can use plain text instead, but anyone
@@ -348,7 +378,8 @@ window.BLIPS = {
      *
      * testing: {
      *   plaintextPublic: true,
-     *   blips: [ { name: 'Test', section: 'general', x: 0, y: 0 } ]
+     *   blips: [ { name: 'Test', section: 'general', x: 0, y: 0 } ],
+     *   connectors: []
      * }
      */
   }

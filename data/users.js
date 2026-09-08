@@ -19,29 +19,29 @@ window.USERS = [
   {
     "username": "admin",
     "label": "Admin",
-    "salt": "414d17fc7f48b8ae3d482d5aa0af440f",
-    "verifier": "fbb41a3aee6f8cb38ce245bf4d51fd3597bae5f65012ccf21ace74634d766efd",
+    "salt": "78995c904115f05d650d46994d758379",
+    "verifier": "10a80009c95e7bee2d9f245188124c7be5e5c4dddbfddb424f7ec5cfe9ad41fd",
     "keys": {
-      "police": "FzjTWVUDbyLBALpxRMtLpSOH/qV2jXzxyz421g80LL8wAjqVSnGtTgASpF1vNN3Io9C3/Mb4yz6/V2ev",
-      "crew": "SR/PgUcm0c1msmdDjUp+62StyxBDEux+fJUPVmA++VxdEdDlvy5oADD3VnbdEThPvz6RP7Q92DW8/Vua"
+      "police": "5H1Z/yDzewlHtJOFsctB1vgi2ayJ2fqXUTeErviqIJn5mGbFg6IJhskWR9eqDUc+eLU/qJ5xY9N2jGHW",
+      "crew": "3rKY1p9IcU8iwDdwCb+nRI/nvKCGrddgBz+NSabGdldwCeRDlYGqPB9s/SHGVKIHd9MhnsjdHluswwSe"
     }
   },
   {
     "username": "officer",
     "label": "Officer Reyes",
-    "salt": "4ee41ae49be061cc642a02a91a2cf460",
-    "verifier": "99e62252bdcfccae37b38a6d91de42985630d3ba10683bd81779ad580b8827d8",
+    "salt": "53264715f43489e45f69ca6e0bcdca17",
+    "verifier": "15c3050ff24b46680d8206cbceb8d91eb1704e05448508da9e1044b58b9c1abd",
     "keys": {
-      "police": "WxPPKSr0a/wYmcXJEwtfEDu/ID/NVIHkYFqQP8xDEXpTbABrXKYN8MQtLou1DIBP/ZPS3HXDYH4Z+loe"
+      "police": "LwEhiq9hQB+U6KXSX28c8nUuRrJ0E61E+0EV4oDelS/o/7f5MxBTnXarxqPzgv/OkySe2GcyWt5TUF8o"
     }
   },
   {
     "username": "crew",
     "label": "Crew Member",
-    "salt": "06770b946caa4a3d3c9e52a2410f0cbb",
-    "verifier": "3e8a3e3e088ebfbefcb04d0a9f19f71a7adf45a6e72cbed8621e44b72c049b9d",
+    "salt": "983368b33399bcf7352755d3f9d20a4e",
+    "verifier": "09999fa8b5c83ec18935ca09806ecfb47a8da61b09295cd7618adfaee282c5a4",
     "keys": {
-      "crew": "hk2iIDVbF6b0H3k1okStiQ5ptF61/KspGgv9dJQH5zZJSJYnLZPxwPTXogTTjNOwTZvIv2J6AQTv01wi"
+      "crew": "lijcZqnMYrFICCKpc9e05VOqWfcMfpGrGxZNqXrojdEGaDTqhJBm++OklKD3b0An14fLobSSpu/7HlTt"
     }
   }
 ];

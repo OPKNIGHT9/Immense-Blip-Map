@@ -62,7 +62,10 @@
     hiddenGroups: {},
     search: '',
     selectedId: null,
+    connectors: [],
     showConnections: CONFIG.connectionsOn !== false,
+    showPins: CONFIG.showPins !== false,
+    showZones: CONFIG.showZones !== false,
     formatChoice: {}
   };
 
@@ -173,21 +176,54 @@
     });
   }
 
+  function normaliseConnector(c, group, index) {
+    return {
+      id: c.id || group + '-conn-' + index,
+      name: c.name || 'Connector',
+      color: c.color || null,
+      mode: c.mode === 'chain' || c.mode === 'hub' ? c.mode : 'mesh',
+      members: Array.isArray(c.members) ? c.members.slice() : [],
+      group: group
+    };
+  }
+
+  /* A group's payload may be a plain array of blips, or an object with
+   * separate blips and connectors. */
+  function splitPayload(payload) {
+    if (Array.isArray(payload)) return { blips: payload, connectors: [] };
+    return {
+      blips: (payload && payload.blips) || [],
+      connectors: (payload && payload.connectors) || []
+    };
+  }
+
   function loadPublicBlips() {
     var source = (window.BLIPS && window.BLIPS.public) || [];
     state.blips = source.map(function (b, i) {
       return normalise(b, 'public', i);
     });
+    state.connectors = ((window.BLIPS && window.BLIPS.connectors) || []).map(function (c, i) {
+      return normaliseConnector(c, 'public', i);
+    });
     reindex();
   }
 
-  function addGroupBlips(group, list) {
+  function addGroupBlips(group, payload) {
+    var data = splitPayload(payload);
     if (state.unlockedGroups.indexOf(group) === -1) state.unlockedGroups.push(group);
+
     state.blips = state.blips.filter(function (b) {
       return b.group !== group;
     });
-    list.forEach(function (b, i) {
+    state.connectors = state.connectors.filter(function (c) {
+      return c.group !== group;
+    });
+
+    data.blips.forEach(function (b, i) {
       state.blips.push(normalise(b, group, i));
+    });
+    data.connectors.forEach(function (c, i) {
+      state.connectors.push(normaliseConnector(c, group, i));
     });
     reindex();
   }
@@ -207,8 +243,8 @@
     return Object.keys(session.groups).reduce(function (chain, name) {
       var entry = groups[name];
       if (!entry) return chain;
-      if (Array.isArray(entry.blips)) {
-        addGroupBlips(name, entry.blips);
+      if (Array.isArray(entry.blips) || entry.payload) {
+        addGroupBlips(name, entry.payload || entry.blips);
         return chain;
       }
       if (!entry.encrypted) return chain;
@@ -252,6 +288,7 @@
   map.setView(gtaToLatLng(view.x, view.y), view.zoom == null ? -1 : view.zoom);
 
   var zoneLayer = L.layerGroup().addTo(map);
+  var vertexLayer = L.layerGroup().addTo(map);
   var connectionLayer = L.layerGroup().addTo(map);
   var blipLayer = L.layerGroup().addTo(map);
   var pingLayer = L.layerGroup().addTo(map);
@@ -259,6 +296,8 @@
   function isVisible(blip) {
     if (state.unlockedGroups.indexOf(blip.group) === -1) return false;
     if (state.hiddenGroups[blip.group]) return false;
+    if (blip.type === 'zone' && !state.showZones) return false;
+    if (blip.type !== 'zone' && !state.showPins) return false;
     if (state.hiddenSections[blip.section]) return false;
     /* Blips with no subsection sit in the "section/" bucket, shown as "Other". */
     var subKey = blip.section + '/' + (blip.subsection || '');
@@ -301,10 +340,48 @@
     );
   }
 
+  function renderVertices(blip, style) {
+    blip.points.forEach(function (point, index) {
+      var vertex = L.marker(gtaToLatLng(point.x, point.y), {
+        icon: L.divIcon({
+          className: 'zone-vertex',
+          html: '<div style="border-color:' + style.color + '">' + (index + 1) + '</div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      }).addTo(vertexLayer);
+
+      vertex.bindPopup(
+        '<div class="blip-popup-inner">' +
+          '<div class="blip-popup-head">' +
+          '<span class="blip-dot" style="background:' + style.color + '"></span>' +
+          '<strong>' + escapeHtml(blip.name) + ' &mdash; point ' + (index + 1) + '</strong></div>' +
+          '<button class="fmt-value" data-copy="' + f(point.x) + ', ' + f(point.y) + '">' +
+          '<span>' + f(point.x) + ', ' + f(point.y) + '</span>' +
+          window.Icons.icon('copy', 12) + '</button>' +
+          '<button class="fmt-value" data-copy="vector2(' + f(point.x) + ', ' + f(point.y) + ')">' +
+          '<span>vector2(' + f(point.x) + ', ' + f(point.y) + ')</span>' +
+          window.Icons.icon('copy', 12) + '</button>' +
+          '</div>',
+        { className: 'blip-popup', closeButton: true, minWidth: 200, autoPan: false }
+      );
+
+      vertex.on('click', function (e) {
+        L.DomEvent.stopPropagation(e);
+      });
+
+      vertexMarkers[blip.id + ':' + index] = vertex;
+    });
+  }
+
+  var vertexMarkers = {};
+
   function renderMarkers() {
     blipLayer.clearLayers();
     zoneLayer.clearLayers();
+    vertexLayer.clearLayers();
     markers = {};
+    vertexMarkers = {};
 
     visibleBlips().forEach(function (blip) {
       var style = resolveStyle(blip);
@@ -330,6 +407,9 @@
           renderMarkers();
           if (markers[blip.id]) markers[blip.id].openPopup();
         });
+
+        /* Selecting a zone exposes its vertices. */
+        if (isSelected) renderVertices(blip, style);
       }
 
       var marker = L.marker(gtaToLatLng(blip.x, blip.y), {
@@ -341,12 +421,14 @@
         })
       }).addTo(blipLayer);
 
+      /* autoPan shoves the map to fit the popup, which at high zoom
+       * throws the blip you just centred out to the edge. Off. */
       marker.bindPopup(popupHtml(blip), {
         className: 'blip-popup',
         closeButton: true,
         offset: [0, -14],
         minWidth: 232,
-        autoPan: true
+        autoPan: false
       });
 
       marker.on('click', function () {
@@ -361,43 +443,149 @@
     renderConnections();
   }
 
+  /* Every line to draw, resolved from both per-blip connections and
+   * connector groups. One entry per drawn line. */
+  function buildEdges() {
+    var edges = [];
+    var seen = {};
+
+    function add(aId, bId, color, groupRef) {
+      var a = state.byId[aId];
+      var b = state.byId[bId];
+      if (!a || !b || a.id === b.id) return;
+      if (!isVisible(a) || !isVisible(b)) return;
+
+      var key = [aId, bId].sort().join('::') + '|' + (groupRef ? groupRef.id : '');
+      if (seen[key]) return;
+      seen[key] = true;
+
+      edges.push({
+        a: a,
+        b: b,
+        color: color || resolveStyle(a).color,
+        connector: groupRef || null
+      });
+    }
+
+    state.blips.forEach(function (blip) {
+      if (!isVisible(blip)) return;
+      blip.connections.forEach(function (targetId) {
+        add(blip.id, targetId, resolveStyle(blip).color, null);
+      });
+    });
+
+    state.connectors.forEach(function (conn) {
+      var members = conn.members.filter(function (id) {
+        var b = state.byId[id];
+        return b && isVisible(b);
+      });
+      if (members.length < 2) return;
+
+      var i, j;
+      if (conn.mode === 'chain') {
+        for (i = 0; i < members.length - 1; i++) add(members[i], members[i + 1], conn.color, conn);
+      } else if (conn.mode === 'hub') {
+        for (i = 1; i < members.length; i++) add(members[0], members[i], conn.color, conn);
+      } else {
+        for (i = 0; i < members.length; i++) {
+          for (j = i + 1; j < members.length; j++) add(members[i], members[j], conn.color, conn);
+        }
+      }
+    });
+
+    return edges;
+  }
+
+  function edgeIsLit(edge) {
+    if (!state.selectedId) return false;
+    if (edge.a.id === state.selectedId || edge.b.id === state.selectedId) return true;
+    return !!(edge.connector && edge.connector.members.indexOf(state.selectedId) !== -1);
+  }
+
+  function edgeMembers(edge) {
+    if (!edge.connector) return [edge.a.id, edge.b.id];
+    return edge.connector.members.filter(function (id) {
+      var b = state.byId[id];
+      return b && isVisible(b);
+    });
+  }
+
+  function edgePopupHtml(edge) {
+    var members = edgeMembers(edge);
+    var title = edge.connector ? edge.connector.name : 'Connection';
+
+    var items = members
+      .map(function (id) {
+        var target = state.byId[id];
+        if (!target) return '';
+        var style = resolveStyle(target);
+        return (
+          '<button class="conn-link" data-goto="' + escapeHtml(id) + '">' +
+          '<span class="conn-dot" style="background:' + style.color + '"></span>' +
+          '<span>' + escapeHtml(target.name) + '</span>' +
+          window.Icons.icon('chevron-right', 11) +
+          '</button>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div class="blip-popup-inner">' +
+      '<div class="blip-popup-head">' +
+      '<span class="blip-dot" style="background:' + edge.color + '"></span>' +
+      '<strong>' + escapeHtml(title) + '</strong></div>' +
+      '<div class="blip-popup-meta"><span>' + members.length + ' connected</span>' +
+      (edge.connector ? '<span class="blip-zone-tag">' + escapeHtml(edge.connector.mode) + '</span>' : '') +
+      '</div>' +
+      '<div class="conn-scroll">' + items + '</div>' +
+      '</div>'
+    );
+  }
+
   function renderConnections() {
     connectionLayer.clearLayers();
     if (!state.showConnections) return;
 
-    var drawn = {};
+    buildEdges().forEach(function (edge) {
+      var line = [gtaToLatLng(edge.a.x, edge.a.y), gtaToLatLng(edge.b.x, edge.b.y)];
+      var lit = edgeIsLit(edge);
 
-    visibleBlips().forEach(function (blip) {
-      blip.connections.forEach(function (targetId) {
-        var target = state.byId[targetId];
-        if (!target || !isVisible(target)) return;
-
-        var pairKey = [blip.id, targetId].sort().join('::');
-        if (drawn[pairKey]) return;
-        drawn[pairKey] = true;
-
-        var lit = state.selectedId === blip.id || state.selectedId === targetId;
-        var color = resolveStyle(state.selectedId === targetId ? target : blip).color;
-        var line = [gtaToLatLng(blip.x, blip.y), gtaToLatLng(target.x, target.y)];
-
-        if (lit) {
-          /* A wide, faint line under the real one reads as a glow. */
-          L.polyline(line, {
-            color: color,
-            weight: 11,
-            opacity: 0.22,
-            interactive: false,
-            className: 'connector-glow'
-          }).addTo(connectionLayer);
-        }
-
+      if (lit) {
+        /* A wide, faint line under the real one reads as a glow. */
         L.polyline(line, {
-          color: color,
-          weight: lit ? 3 : 2,
-          opacity: lit ? 1 : 0.45,
-          dashArray: lit ? null : '6, 6',
-          interactive: false
+          color: edge.color,
+          weight: 11,
+          opacity: 0.22,
+          interactive: false,
+          className: 'connector-glow'
         }).addTo(connectionLayer);
+      }
+
+      var stroke = L.polyline(line, {
+        color: edge.color,
+        weight: lit ? 3 : 2,
+        opacity: lit ? 1 : 0.45,
+        dashArray: lit ? null : '6, 6',
+        interactive: true,
+        bubblingMouseEvents: false
+      }).addTo(connectionLayer);
+
+      /* A fat invisible line makes the thin one realistic to click. */
+      var hitbox = L.polyline(line, {
+        color: '#000',
+        weight: 14,
+        opacity: 0,
+        interactive: true,
+        bubblingMouseEvents: false
+      }).addTo(connectionLayer);
+
+      [stroke, hitbox].forEach(function (layer) {
+        layer.bindPopup(edgePopupHtml(edge), {
+          className: 'blip-popup',
+          closeButton: true,
+          minWidth: 210,
+          autoPan: false
+        });
       });
     });
   }
@@ -464,8 +652,32 @@
       '<span>' + escapeHtml(formatValue(blip, chosen)) + '</span>' +
       window.Icons.icon('copy', 12) +
       '</button>' +
+      zonePointsHtml(blip) +
       connectionListHtml(blip) +
       '</div>'
+    );
+  }
+
+  function zonePointsHtml(blip) {
+    if (blip.type !== 'zone') return '';
+
+    var items = blip.points
+      .map(function (point, i) {
+        return (
+          '<button class="conn-link vertex-link" data-vertex="' + escapeHtml(blip.id) + ':' + i + '">' +
+          '<span class="vertex-index">' + (i + 1) + '</span>' +
+          '<span>' + f(point.x) + ', ' + f(point.y) + '</span>' +
+          window.Icons.icon('copy', 11) +
+          '</button>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div class="conn-block">' +
+      '<div class="conn-title">' + window.Icons.icon('map-pin', 11) +
+      '<span>' + blip.points.length + ' points</span></div>' +
+      '<div class="conn-scroll">' + items + '</div></div>'
     );
   }
 
@@ -488,6 +700,18 @@
       if (!isVisible(other)) return;
       seen[other.id] = true;
       out.push(other);
+    });
+
+    /* Anyone sharing a connector group counts as linked. */
+    state.connectors.forEach(function (conn) {
+      if (conn.members.indexOf(blip.id) === -1) return;
+      conn.members.forEach(function (id) {
+        if (id === blip.id || seen[id]) return;
+        var target = state.byId[id];
+        if (!target || !isVisible(target)) return;
+        seen[id] = true;
+        out.push(target);
+      });
     });
 
     return out;
@@ -514,7 +738,7 @@
       '<div class="conn-block">' +
       '<div class="conn-title">' + window.Icons.icon('link', 11) +
       '<span>Connected to ' + linked.length + '</span></div>' +
-      items + '</div>'
+      '<div class="conn-scroll">' + items + '</div></div>'
     );
   }
 
@@ -538,6 +762,21 @@
       var marker = markers[id];
       if (blip && marker && marker.getPopup()) {
         marker.setPopupContent(popupHtml(blip));
+      }
+      return;
+    }
+
+    var vertexBtn = e.target.closest && e.target.closest('[data-vertex]');
+    if (vertexBtn) {
+      var ref = vertexBtn.getAttribute('data-vertex');
+      var parts = ref.split(':');
+      var zone = state.byId[parts[0]];
+      var point = zone && zone.points[parseInt(parts[1], 10)];
+      if (point) {
+        copyText(f(point.x) + ', ' + f(point.y));
+        toast('Copied point ' + (parseInt(parts[1], 10) + 1));
+        map.panTo(gtaToLatLng(point.x, point.y), { animate: true });
+        if (vertexMarkers[ref]) vertexMarkers[ref].openPopup();
       }
       return;
     }
@@ -792,6 +1031,8 @@
     renderMarkers();
     renderAccount();
     document.getElementById('btn-connections').classList.toggle('active', state.showConnections);
+    document.getElementById('btn-pins').classList.toggle('active', state.showPins);
+    document.getElementById('btn-zones').classList.toggle('active', state.showZones);
   }
 
   /* ------------------------------------------------------------------ *
@@ -879,9 +1120,14 @@
       var payload = { username: session.username, label: session.label, groups: {} };
       state.unlockedGroups.forEach(function (g) {
         if (g === 'public') return;
-        payload.groups[g] = state.blips.filter(function (b) {
-          return b.group === g;
-        });
+        payload.groups[g] = {
+          blips: state.blips.filter(function (b) {
+            return b.group === g;
+          }),
+          connectors: state.connectors.filter(function (c) {
+            return c.group === g;
+          })
+        };
       });
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
     } catch (err) {
@@ -1126,6 +1372,18 @@
     document.getElementById('btn-connections').classList.toggle('active', state.showConnections);
     renderConnections();
     toast(state.showConnections ? 'Connectors shown' : 'Connectors hidden');
+  });
+
+  document.getElementById('btn-pins').addEventListener('click', function () {
+    state.showPins = !state.showPins;
+    renderAll();
+    toast(state.showPins ? 'Blips shown' : 'Blips hidden');
+  });
+
+  document.getElementById('btn-zones').addEventListener('click', function () {
+    state.showZones = !state.showZones;
+    renderAll();
+    toast(state.showZones ? 'Zones shown' : 'Zones hidden');
   });
 
   document.getElementById('btn-jump').addEventListener('click', openJump);
