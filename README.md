@@ -181,6 +181,16 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 | Click bare map | Clear the current selection |
 | Click the highlighted row again | Clear the current selection |
 
+## After you push a change
+
+Browsers cache `js/app.js` and `css/styles.css` under the same filename, so an update can look like it didn't deploy. The asset links in `index.html` carry a `?v=` marker for this — bump the number on all of them whenever you change a file:
+
+```html
+<script src="js/app.js?v=3"></script>
+```
+
+If you forget, a hard reload (`Ctrl+Shift+R`) gets you the current version. Editing only `data/blips.js` needs the bump too, since it's cached the same way.
+
 ## Running locally
 
 ```bash
