@@ -433,6 +433,13 @@
         { className: 'blip-popup', closeButton: true, minWidth: 210, autoPan: false }
       );
 
+      vertex.bindTooltip('Point ' + (index + 1), {
+        direction: 'top',
+        offset: [0, -12],
+        className: 'blip-tooltip',
+        opacity: 1
+      });
+
       vertex.on('click', function (e) {
         L.DomEvent.stopPropagation(e);
       });
@@ -476,6 +483,13 @@
           autoPan: false
         });
 
+        polygon.bindTooltip(escapeHtml(blip.name), {
+          sticky: true,
+          direction: 'top',
+          className: 'blip-tooltip',
+          opacity: 1
+        });
+
         polygon.on('click', function (e) {
           L.DomEvent.stopPropagation(e);
           var wasSelected = state.selectedId === blip.id;
@@ -513,6 +527,13 @@
         offset: [0, -14],
         minWidth: 232,
         autoPan: false
+      });
+
+      marker.bindTooltip(escapeHtml(blip.name), {
+        direction: 'top',
+        offset: [0, -18],
+        className: 'blip-tooltip',
+        opacity: 1
       });
 
       marker.on('click', function () {

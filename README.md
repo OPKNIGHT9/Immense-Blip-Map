@@ -188,6 +188,7 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 | Link button | Show or hide connector lines |
 | Crosshair button | Jump to coordinates |
 | `Ctrl+F` | Same jump dialog — accepts `123, -456` or a whole `vector3(...)` pasted into the X field |
+| Hover a blip or zone | Show its name |
 | Right-click the map | Copy the coordinates under the cursor |
 | Zoom box (bottom right) | Click the percentage to type an exact zoom, 25%–1600% |
 | Divider in the sidebar | Drag to resize the section tree against the location list; double-click to reset |

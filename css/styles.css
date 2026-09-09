@@ -1068,3 +1068,23 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
 
 .blip-popup .leaflet-popup-content { max-height: 420px; overflow-y: auto; }
 .leaflet-interactive { cursor: pointer; }
+
+/* Hover labels */
+
+.blip-tooltip {
+  padding: 4px 9px;
+  background: rgba(10, 10, 12, 0.95);
+  border: 1px solid var(--border-hover);
+  border-radius: 7px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.blip-tooltip::before { display: none; }
+
+.leaflet-tooltip.blip-tooltip.leaflet-tooltip-top { margin-bottom: 2px; }
