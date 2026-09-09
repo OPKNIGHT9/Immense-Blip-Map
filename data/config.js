@@ -67,9 +67,9 @@ window.CONFIG = {
       icon: 'shop',
       color: '#3b82f6',
       subsections: {
-        food: { label: 'Food & Drink', color: '#60a5fa' },
-        mech: { label: 'Mech', icon: 'shop', color: '#93c5fd' },
-        club: { label: 'Club', color: '#3984d9' },
+        food: { label: 'Food & Drink', icon: 'food', color: '#60a5fa' },
+        mech: { label: 'Mech', icon: 'wrench', color: '#93c5fd' },
+        club: { label: 'Club', icon: 'wine', color: '#3984d9' },
         dealer: { label: 'Dealership', icon: 'car', color: '#0f3561' },
         other: { label: 'Unqiue' }
       }
