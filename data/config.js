@@ -70,6 +70,7 @@ window.CONFIG = {
         food: { label: 'Food & Drink', color: '#60a5fa' },
         mech: { label: 'Mech', icon: 'car', color: '#93c5fd' },
         club: { label: 'Club', color: '#3984d9' },
+        dealer: { label: 'Dealership', color: '#0f3561' },
         other: { label: 'Unqiue' }
       }
     },
