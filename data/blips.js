@@ -29,10 +29,7 @@ window.BLIPS = {
       "id": "legion-square",
       "name": "Legion Square",
       "section": "general",
-      "x": 195,
-      "y": -934,
-      "z": 30.7,
-      "heading": 145,
+      "coords": "vector4(195.0, -934.0, 30.7, 145.0)",
       "description": "Central meeting spot downtown."
     },
     {
@@ -61,9 +58,7 @@ window.BLIPS = {
       "id": "vespucci-beach",
       "name": "Vespucci Beach",
       "section": "general",
-      "x": -1223,
-      "y": -1490,
-      "z": 4.3,
+      "coords": "-1223.0, -1490.0, 4.3",
       "description": "Boardwalk and pier."
     },
     {
@@ -263,9 +258,7 @@ window.BLIPS = {
       "id": "quarry",
       "name": "Davis Quarry",
       "section": "jobs",
-      "x": 2949,
-      "y": 2792,
-      "z": 41,
+      "coords": "2949.0, 2792.0, 41.0",
       "description": "Mining contracts."
     },
     {
@@ -312,22 +305,10 @@ window.BLIPS = {
         "lsia"
       ],
       "points": [
-        {
-          "x": -1400,
-          "y": -2400
-        },
-        {
-          "x": -700,
-          "y": -2500
-        },
-        {
-          "x": -650,
-          "y": -3200
-        },
-        {
-          "x": -1500,
-          "y": -3100
-        }
+        "-1400.0, -2400.0",
+        "-700.0, -2500.0",
+        "-650.0, -3200.0",
+        "-1500.0, -3100.0"
       ]
     }
   ],
@@ -366,11 +347,11 @@ window.BLIPS = {
     /* Encrypted with each group's key. Regenerate via tools/admin.html
      * whenever you add or change a group's blips. */
     police: {
-      encrypted: "vBLf7FqsPIymKX2hDiSvHSlBNBFSYaxwvrrE8wIkBSWu/6valGtrltnwgxc2uiKNdUgG96LD9nbJOuWWhLRT0wnFBvoM8WNhJjR50X/Ev+6VYbJWuGPN9tTZSUHUl1xNs1RXAoS7VibXDHcjGMRo2pgBVPAVTbfQppwYdKW1KyHi/IZNRh1uYSbEQhUoEEKm57+KGLP2qiM0Nw6U9aeTSLCMPjslew/RUGtEDIGNRXYoTtsV1cv5C4W2dtmK+pLPCdIkBbIOE6tPKUHz+XQrxbs9RT59mT7mxDRejkym6BMu3x3GwrIBM7v6RA37TWhr2XdU1US6mz5Dek8joMQ3TpEJOMN54yvE6/0RhaBbiGUudhKBWeY8+sWgLZtWuaWs/kroMNMaWA0YSkeMaVYX7f1WxV3XaBJHBUSsYrIqyD/MzjG3f4vNZ6Ygy2zbpj/4rzQh3gg1NjBUte+7kqMZfcC2rQp27kdXsBL8+39zWKvOlGEDMyqN4vHxOEn1v90IsWlljWWJp579ECGI4X2v8n1drOyUi8NlTKZqOnivp274Vp9r8LH9aBgUHW4F1uc8JFCSHBFjgECX/mwjS1ii/G5UVwi7IKlPurc9OljV3c8GuDWn9UKMdqaRFFeNpGKpHG0q+FCjIAFk1zHB6XIy9GbqAzRjpXtzZK4l0ioAm70rop3j8YMXFpBHWFPnqSHbWufW0wgkz5buEsf/45c7yf3PUDOLPHkf85eKwyLC/FhQeYFRBVq2GG25hb94JK4MnsP21PE5prBAqCANBBkNQUJWvrYCKB4ETwphKO+ZR2XxoA=="
+      encrypted: "MVVP2TRSrMcbNoQrTDQcYQJFJZgTrT+2fwvS5bV3LDFz3+qqISP6rVyS1LTE/4Ve4B7EJNc07h0Arni7kAzV4ZpD6ZXcfI0ATxuIxRVZjYNX0M94obl9pxbgkYZaFbORw7lPotMhhU7QO3FKyfLy0gXz8NwTRWpmTSfTk6M5b5Pc35c0AEYiEcRs9xKzyFZ7xH4VQJ7esM/TCEPCMxeoiKtMxSQ41VmPH1+pn0xhMr9ax1Xq3w37CDZoaGt662nWxd06AGiAwjXn7hypX2q1asy7C0X9QuxqpCBO/NoDIfhZrWIlQqvN2lT+Vb/tkckePLIttz1c3jmNCVIwtIrCIwN4bG/TXbbFUlCtXQ9RwpZHLSkjhtqBLqwQ1YPx8x3x8EoPlhIvC+/0/vtMW54E3jAIQz2R9mFiuQg8RK4VLnTN0u8SBNlFEESKNGhWkfIw3NcEoiUUSIhNpCy1nSl7SXcSbWRf/+jxt4e/OBXjrz4t47G0Jdot4qP7gPmG/VLu1OSIRhy3xUc6bfIHN3BCVzrqrOF/KnLhVc2411pqTFVT0a2WmpFgVb/laQnXG/hL1AnWWUGxaizUIIxlz8IfILs68b6x1jNosSb9oiGast1QkmBUrZknj9Fmierd8GjOKP80GvNMEijBI2AsTgOSvm+twrzpMqHIrcl10qDmt8wF//FN5Jd87OUDnAXa6zaHdZCBGQURXKy11+92916DawSbC0ek035w6oUgyBCXA8xhrc2AuHsJB7JvBYyKXolQpFDP+NTMBk25UTgauRSFXrrN2+dqAXFcbC4YnG24kDM0QQ=="
     },
 
     crew: {
-      encrypted: "e4w5pUjHd8kr7EEdoM+e1QVzoOdyYv+lAnkZv99KpJisnY1LUulSLoQcKyJEPOGkQi6rMwu7MySgnpxBfEKvqEP8PTyv7G3tEPecb1TdxL2/EYNwAKmWRZ5ivlAZQUBwE2wGJ7t0xLBfiiVWoxZNZZXyzioUKyS+cwYVU9rNlLxE2pXXMfTEDhW8AgakVoH97k4D8y6KEXbg8V1llhL1UMa+V7sHUzmVxyuVHZSVVuoZeawZ6Oxs98tCzN4g34tNZOKXqXJtVc//DyBJNQJL9XfTpon/5pdxQhMFHJNKKAbVgnwJDH+sznCjwuAa9tb4zLEKJSYKAGjHxu6U/762U7XrygHeaDcU463oVSzSAh1FPVYzkgaK8CyN742IKkCoBD/Ll+pXOkNYYb4+UFw3Val2o6kU2NBtwZZ2+qnHlrxW+V/N+qxxxvaVyg4iOBppfdqX72o2ekZyMtsE7URxU2s7oriQDW4cW2Nz8IWzwhMyfNK5CmYlkjYwj6SpMQgF5kzmEpiV39bQz8vct36fxTL68CttEcdjq06/VK8BJ763JevsSWBQQ2XrWSZXyh4hRlTa7m0aSMi1QdYU1mhS55ZHXplOzp0Tis0KkKG+Sb4udkDGcpfMmFkjmT0O8173bv1tWJoNzF8Q0oyQ2mPUzWadLF43J+27LjI0Xas+OToXk7AKmPvbe1EPMWIKtF4GQzQikDsbR2O/bam45g92koDUQjVSXDrkwCTeO1ovU6SMX/NzOYmRxjik/xkAVLMWIl3nS6lpkOVedh35opFUHA9wRiPptuTdm2Qkere3mM9/1lIkcmqxGwNcEw5T2DY+zCpBxn+5uUXz1cgcjZhU5wf+cmdq4w9SkAbr36XX+A40C2fhlRoBa7Ypo01gs12DjmXjdJa1AOKwi6Krd0a5z+6AEzVlumhoIj/gqjh2Z50I/uepQgyVb/HITn2dyDHwyTfu4QWCsEHFzwpIkKDHUlzzkJzZpaZCjqXt5nY8skifJq0uELdFwp1MGfCZGt7JL+guVmvdDdt6VKbPqIWUCsoXGFdfH3KRPsGZ/LoTy1V8RbUfCzVYLLPtTAWJGvoT33TkxrrlXAPDoznBCO8VFs0gVXyd/Hv/geN8kwXDBZEAgbpqafdF+tQqp6dW4J1e9iik2eMqepISadE03mOIDK7RQ60XdpxfDlhvWuBxwtfRshF9dRD7KVBVwzE="
+      encrypted: "DdxZyGH8/+eRR13c8vXxI+RacurOn6RmNHhcdt7EK8vuR3rB1l5oGgvU57eSRuRJmN4KsJotHYQ4rO3HKcTRZ/h3DBEklGJ3s5Ig+T3ieO/RMZEGwkJWlGXJhRsf5sc9BtRnXzQrNIbKfrSSrWlBpciKZZXlCA8Gip7ZYlJorqG/dbuuue3MFPrUYSGafFaWtQhV550IUbOtG6rYUyv2fQ0FpQQ+cAgZj+jta4RtaKvvslNnwHX+fPSSzVufT5OIQXkzNcRyJh2LvzW1xR9eeWNZpjFZZYTs3oGVkVZi5YgG9t1z2+hYVI6uxctgmFYqUTsLt3B0F4tnYAoVVZNt0xFJbmbV07Wo+dqsVepyMQy8PncgbUBcVTzah5PSOtgKfe+iQV8G8ndyIPNTmrv0P87xguU3nFQGV1woY4nCXbZ7bexKand9uVwFmxFLEk1LWJnQ9RxWaJxPwgag55JiRY8o6IQ2dAckUPafSmD7PDDjRscgJmFzxyYhez4yeYAjy3DnlJ1ukhfdCqqsbOWKSuLoxShc8vItwVJI3l3oT053je7S4EubGmHjVbqEr+1qSLj+eBWkS0MRDcPKY+JUxjGqu1T/tlmh4zneazsmOm2QGR3hCAnrQi7e6AFUlbJpZ+Yc5InoOEhVDCTR4AvkYbzEmJeJPu75xmA5u0zdLCJ85JXEY2CbNhbK1ktKRTJQH0mSSdWqFQWD9DyD+rLynJZAWF9NibcGirWGpba7f/kfj3eUBe1JibCInX+oS85rjKBeKomi4TazI6Z+5gJK3JTgrfOaaHX3QK9HjiyrvtskG6GZ83RCdYqq4Sl85xcwTcXlLGD1XEGizSDRdQIJNY9onvT17OS5gnVikVaLuhqlYED2ZkEMxmJkBxKClQxQUv9hLxzcAvV5qiN5RgDuBabJFCbusXWW0gYt7CphlDugatC+E1F8gdmRFAxfdfWoQ3W8updE2J95kDiLFgqbqygRBfMH4dqTLEgFzV2ZRLTtSkR4mPSX2bcBBMxVe+7VZGmb2ynstbZfOsUHTMwXT2Ns4S66fHDad1ChNcZCLsgawuoWBRy2qI9Xa8sRCnEz7v8ozwht9HIWwCeNrso4TeuoiN6y+S9evqkle8rz5I+xj/MorNehqxaS72pImmHygOH+DZW3tAH0LU3rrQX7JV4X98z24y0Kr2H2FxvLDuQ7ghLuWNhIdS30pCM="
     }
 
     /* While setting things up you can use plain text instead, but anyone

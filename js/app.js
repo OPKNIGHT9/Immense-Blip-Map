@@ -119,21 +119,78 @@
     return { x: sx / points.length, y: sy / points.length };
   }
 
-  function normalise(blip, group, index) {
-    var heading = blip.heading;
-    if (heading === '' || heading === undefined) heading = null;
-    if (heading !== null) {
-      heading = Number(heading);
-      if (isNaN(heading)) heading = null;
-      else heading = ((heading % 360) + 360) % 360;
+  /* Accepts "0, 0, 0", "vector4(1.0, 2.0, 3.0, 90.0)", "vec3(1,2,3)" or an
+   * array [x, y, z, heading]. Returns nulls for anything not supplied, so
+   * a heading of 0 stays distinguishable from no heading at all. */
+  function parseCoords(value) {
+    if (value == null) return null;
+
+    var nums;
+    if (Array.isArray(value)) {
+      nums = value.map(Number);
+    } else if (typeof value === 'number') {
+      return null;
+    } else {
+      /* Strip the vec/vector prefix first, or the digit in "vector4("
+       * gets read as a coordinate. */
+      var cleaned = String(value).replace(/vec(?:tor)?\s*[0-9]*/gi, ' ');
+      var found = cleaned.match(/-?\d+(?:\.\d+)?/g);
+      if (!found) return null;
+      nums = found.map(Number);
     }
 
-    var zoneZ = blip.z == null ? 0 : Number(blip.z);
+    nums = nums.filter(function (n) {
+      return !isNaN(n);
+    });
+    if (nums.length < 2) return null;
+
+    return {
+      x: nums[0],
+      y: nums[1],
+      z: nums.length > 2 ? nums[2] : null,
+      heading: nums.length > 3 ? nums[3] : null
+    };
+  }
+
+  function normaliseHeading(value) {
+    if (value === '' || value === undefined || value === null) return null;
+    var h = Number(value);
+    if (isNaN(h)) return null;
+    return ((h % 360) + 360) % 360;
+  }
+
+  function normalise(blip, group, index) {
+    /* A compact `coords` field is shorthand for x/y/z/heading. Any of
+     * those written out individually still wins. */
+    var short = parseCoords(blip.coords) || {};
+
+    var heading = normaliseHeading(blip.heading != null ? blip.heading : short.heading);
+
+    var z =
+      blip.z != null ? Number(blip.z) : short.z != null ? Number(short.z) : null;
+    var zoneZ = z == null ? 0 : z;
+
     var points = Array.isArray(blip.points)
       ? blip.points
           .map(function (p) {
+            /* Points take the same shorthand: "0, 0, 0" or [x, y, z]. */
+            if (typeof p === 'string') {
+              var parsed = parseCoords(p);
+              if (!parsed) return { x: NaN, y: NaN, z: zoneZ };
+              return { x: parsed.x, y: parsed.y, z: parsed.z == null ? zoneZ : parsed.z };
+            }
             if (Array.isArray(p)) {
               return { x: Number(p[0]), y: Number(p[1]), z: p[2] == null ? zoneZ : Number(p[2]) };
+            }
+            if (p && p.coords != null) {
+              var fromCoords = parseCoords(p.coords);
+              if (fromCoords) {
+                return {
+                  x: fromCoords.x,
+                  y: fromCoords.y,
+                  z: fromCoords.z == null ? zoneZ : fromCoords.z
+                };
+              }
             }
             return { x: Number(p.x), y: Number(p.y), z: p.z == null ? zoneZ : Number(p.z) };
           })
@@ -144,10 +201,13 @@
 
     var isZone = points.length >= 3;
 
+    var pinnedX = blip.x != null ? Number(blip.x) : short.x != null ? short.x : null;
+    var pinnedY = blip.y != null ? Number(blip.y) : short.y != null ? short.y : null;
+
     /* A zone's marker sits at its centroid unless the author pinned it. */
     var anchor =
-      blip.x != null && blip.y != null
-        ? { x: Number(blip.x), y: Number(blip.y) }
+      pinnedX != null && pinnedY != null
+        ? { x: pinnedX, y: pinnedY }
         : isZone
         ? centroid(points)
         : { x: 0, y: 0 };
@@ -164,7 +224,7 @@
       description: blip.description || '',
       x: anchor.x,
       y: anchor.y,
-      z: blip.z == null ? null : Number(blip.z),
+      z: z,
       fillOpacity: blip.fillOpacity == null ? 0.25 : Number(blip.fillOpacity),
       heading: heading,
       connections: Array.isArray(blip.connections) ? blip.connections.slice() : [],

@@ -36,15 +36,29 @@ What this does **not** protect against: someone who has a valid login can read e
   name: 'Legion Square',
   section: 'general',             // a key from config.js sections
   subsection: 'retail',           // optional, a key under that section
-  x: 195.0,
-  y: -934.0,
-  z: 30.7,                        // optional, used by vec3 / vec4 / TP
-  heading: 145.0,                 // optional, 0-360, 0 = north
+  coords: '195.0, -934.0, 30.7, 145.0',
   icon: 'flag',                   // optional, overrides the section icon
   color: '#f87171',               // optional, overrides the section colour
   connections: ['mission-row-pd'],// optional, draws a line to those blips
   description: 'Central meeting spot.'
 }
+```
+
+**Coordinates.** `coords` takes whatever you have on the clipboard — all of these are the same blip:
+
+```js
+coords: 'vector4(195.0, -934.0, 30.7, 145.0)'
+coords: 'vec4(195.0, -934.0, 30.7, 145.0)'
+coords: '195.0, -934.0, 30.7, 145.0'
+coords: [195.0, -934.0, 30.7, 145.0]
+```
+
+Three numbers means no heading, two means no heading and no Z. A fourth number is the heading, so `'0, 0, 0, 0'` is a blip facing north rather than a blip with no heading.
+
+You can still write the fields out separately if you prefer, and they win over `coords` when both are present:
+
+```js
+x: 195.0, y: -934.0, z: 30.7, heading: 145.0
 ```
 
 Coordinates are game coordinates. Right-click anywhere on the map to copy the coordinates under your cursor, or press `Ctrl+F` to jump to a pair you already have.
@@ -98,7 +112,7 @@ Selecting any member lights the whole group. Group connectors work inside encryp
 }
 ```
 
-`[x, y]` pairs work as well as `{x, y}` objects. The marker sits at the polygon's centroid unless you also give `x` and `y` to pin it somewhere specific — and that anchor is what the coordinate buttons and any connectors use. Zones behave like any other blip otherwise: they filter, search, connect and appear in the list.
+Points take the same shorthand — `'0, 0, 25'`, `[0, 0, 25]` and `{ x: 0, y: 0, z: 25 }` are interchangeable, and a point with no Z of its own uses the zone's. The marker sits at the polygon's centroid unless you also give `x` and `y` to pin it somewhere specific — and that anchor is what the coordinate buttons and any connectors use. Zones behave like any other blip otherwise: they filter, search, connect and appear in the list.
 
 Zones have no centre pin — you click the shape itself. Selecting one shows numbered markers on each vertex and lists the points in the popup; clicking a point copies its coordinates and pans there, and clicking a vertex marker gives you coords, `vector3(...)` and a TP command for it. A point uses its own `z` if you give it one (`{ x, y, z }` or `[x, y, z]`), otherwise the zone's.
 
