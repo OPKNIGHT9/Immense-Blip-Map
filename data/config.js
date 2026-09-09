@@ -67,45 +67,12 @@ window.CONFIG = {
       icon: 'shop',
       color: '#3b82f6',
       subsections: {
-        retail: { label: 'Retail', icon: 'shop' },
         food: { label: 'Food & Drink', color: '#60a5fa' },
-        fuel: { label: 'Fuel', icon: 'car', color: '#93c5fd' }
+        mech: { label: 'Mech', icon: 'car', color: '#93c5fd' },
+        club: { label: 'Club', color: '#3984d9' },
+        other: { label: 'Unqiue' }
       }
     },
-
-    housing: {
-      label: 'Housing',
-      icon: 'house',
-      color: '#f59e0b',
-      subsections: {
-        apartments: { label: 'Apartments' },
-        estates: { label: 'Estates', color: '#fbbf24' }
-      }
-    },
-
-    transport: {
-      label: 'Transport',
-      icon: 'car',
-      color: '#06b6d4',
-      subsections: {
-        garages: { label: 'Garages' },
-        air: { label: 'Air', icon: 'flag' },
-        sea: { label: 'Sea', icon: 'anchor' }
-      }
-    },
-
-    jobs: {
-      label: 'Jobs',
-      icon: 'briefcase',
-      color: '#a855f7'
-    },
-
-    secret: {
-      label: 'Secret Spots',
-      icon: 'star',
-      color: '#ec4899',
-      collapsed: true
-    }
   },
 
   /* ---------------------------------------------------------------- *
@@ -116,8 +83,6 @@ window.CONFIG = {
    * ---------------------------------------------------------------- */
   groups: {
     public: { label: 'Public', color: '#22c55e' },
-    police: { label: 'Police', color: '#3b82f6' },
-    crew: { label: 'Crew', color: '#ef4444' }
   },
 
   footerNote: 'Locations are in-game only.'
