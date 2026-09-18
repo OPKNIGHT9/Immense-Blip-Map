@@ -247,7 +247,7 @@ window.BLIPS = {
       "mode": "mesh",
       "members": [
         "mrpd",
-        "hwp",
+        "hpd",
         "sspd",
         "pbpd"
       ]

@@ -74,6 +74,15 @@ window.CONFIG = {
         other: { label: 'Unqiue' }
       }
     },
+
+    police: {
+      label: 'Police',
+      icon: 'shop',
+      color: '#d310a9',
+      subsections: {
+        stations: { label: 'Police Stations', icon: 'utensils', color: '#60a5fa' }
+      }
+    },
   },
 
   /* ---------------------------------------------------------------- *
