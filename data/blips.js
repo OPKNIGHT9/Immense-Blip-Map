@@ -50,7 +50,7 @@ window.BLIPS = {
     },
     {
       "id": "arcade",
-      "tags": ["MLO"],
+      "tags": ["MLO", "Los Santos"],
       "name": "Eight Bit Arcade",
       "section": "business",
       "subsection": "other",
@@ -58,6 +58,7 @@ window.BLIPS = {
     },
     {
       "id": "pizza",
+      "tags": ["MLO", "Los Santos"],
       "name": "Pizza This",
       "section": "business",
       "subsection": "food",
@@ -65,6 +66,7 @@ window.BLIPS = {
     },
     {
       "id": "tunershop",
+      "tags": ["MLO", "Los Santos"],
       "name": "Tuners Mech Shop",
       "section": "business",
       "subsection": "mech",
@@ -72,7 +74,7 @@ window.BLIPS = {
     },
     {
       "id": "catcafe",
-      "tags": ["MLO"],
+      "tags": ["MLO", "Los Santos"],
       "name": "UWU Cat Cafe",
       "section": "business",
       "subsection": "food",
@@ -80,6 +82,7 @@ window.BLIPS = {
     },
     {
       "id": "record",
+      "tags": ["MLO", "Los Santos"],
       "name": "Ctrl Sound Recording Studio",
       "section": "business",
       "subsection": "other",
@@ -87,6 +90,7 @@ window.BLIPS = {
     },
     {
       "id": "sightings",
+      "tags": ["MLO", "Los Santos"],
       "name": "Sightings Space Resturant",
       "section": "business",
       "subsection": "food",
@@ -94,7 +98,7 @@ window.BLIPS = {
     },
     {
       "id": "boathouse",
-      "tags": ["Sandy Shores"],
+      "tags": ["MLO", "Sandy Shores"],
       "name": "Boat House",
       "section": "business",
       "subsection": "food",
@@ -102,6 +106,7 @@ window.BLIPS = {
     },
     {
       "id": "pdm",
+      "tags": ["MLO", "Los Santos"],
       "name": "Premium Deluxe Motorsport",
       "section": "business",
       "subsection": "dealer",
@@ -109,6 +114,7 @@ window.BLIPS = {
     },
     {
       "id": "import",
+      "tags": ["MLO", "Los Santos"],
       "name": "Rockford Import Dealership",
       "section": "business",
       "subsection": "dealer",
@@ -116,6 +122,7 @@ window.BLIPS = {
     },
     {
       "id": "hof",
+      "tags": ["IPL", "Los Santos"],
       "name": "Hall of Fame",
       "section": "business",
       "subsection": "other",
@@ -123,6 +130,7 @@ window.BLIPS = {
     },
     {
       "id": "luxx",
+      "tags": ["MLO", "Los Santos"],
       "name": "Luxx Nightclub",
       "section": "business",
       "subsection": "club",
@@ -130,6 +138,7 @@ window.BLIPS = {
     },
     {
       "id": "lsc",
+      "tags": ["MLO", "Los Santos"],
       "name": "Los Santos Custom",
       "section": "business",
       "subsection": "mech",
@@ -137,7 +146,7 @@ window.BLIPS = {
     },
     {
       "id": "seaton",
-      "tags": ["Sandy Shores"],
+      "tags": ["MLO", "Sandy Shores"],
       "name": "Seaton Sands",
       "section": "business",
       "subsection": "mech",
@@ -145,6 +154,7 @@ window.BLIPS = {
     },
     {
       "id": "vu",
+      "tags": ["Los Santos"],
       "name": "Vanilla Unicorn",
       "section": "business",
       "subsection": "club",
@@ -152,7 +162,7 @@ window.BLIPS = {
     },
     {
       "id": "paletomech",
-      "tags": ["Paleto"],
+      "tags": ["MLO", "Paleto"],
       "name": "Paleto Mechanic Shop",
       "section": "business",
       "subsection": "mech",
@@ -160,6 +170,7 @@ window.BLIPS = {
     },
     {
       "id": "petshop",
+      "tags": ["MLO", "Sandy Shores"],
       "name": "Animal Ark",
       "section": "business",
       "subsection": "other",
@@ -167,6 +178,7 @@ window.BLIPS = {
     },
     {
       "id": "tequilala",
+      "tags": ["Los Santos"],
       "name": "Tequilala",
       "section": "business",
       "subsection": "food",
@@ -174,6 +186,7 @@ window.BLIPS = {
     },
     {
       "id": "lovebite",
+      "tags": ["MLO", "Los Santos"],
       "name": "Love Bites",
       "section": "business",
       "subsection": "food",

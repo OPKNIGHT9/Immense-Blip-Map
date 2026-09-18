@@ -10,7 +10,7 @@ window.CONFIG = {
   tagline: 'Server locations & points of interest',
 
   /* Link in the header. null hides it. */
-  headerLink: null,
+  headerLink: "discord.gg/immnenseRP",
 
   /* Where the map opens. Game coordinates, not pixels. */
   defaultView: { x: 0, y: 0, zoom: -1 },
