@@ -40,9 +40,23 @@ What this does **not** protect against: someone who has a valid login can read e
   icon: 'flag',                   // optional, overrides the section icon
   color: '#f87171',               // optional, overrides the section colour
   connections: ['mission-row-pd'],// optional, draws a line to those blips
+  tags: ['MLO', 'Business'],      // optional, free-form labels
+  enabled: false,                 // optional, omits the blip entirely
   description: 'Central meeting spot.'
 }
 ```
+
+**Turning a blip off.** `enabled: false` (or `disabled: true`) keeps a blip in the file but out of the site — no marker, no list entry, and it isn't counted anywhere. Useful for a location that's closed, unfinished, or seasonal, without deleting the entry.
+
+**Tags** are free text — `'MLO'`, `'Base'`, `'Business'`, whatever you like. Nothing to declare in `config.js`: the chips above the section tree are built from whatever tags exist in the loaded blips, with counts. Clicking chips filters the map and list to blips carrying **any** of the selected tags. Tags also show as coloured badges on list rows and in popups, and the search box matches them, so typing `mlo` finds every tagged blip.
+
+Colours are derived from the tag name so they stay consistent between loads. To pin specific ones, add a `tagColors` map to `config.js`:
+
+```js
+tagColors: { MLO: '#f59e0b', Base: '#ef4444' }
+```
+
+**Sorting.** The dropdown in the list header sorts by Name, Section or Tag. Sorting by tag uses each blip's alphabetically-first tag, with untagged blips last.
 
 **Coordinates.** `coords` takes whatever you have on the clipboard — all of these are the same blip:
 

@@ -60,6 +60,8 @@
     hiddenSubsections: {},
     collapsed: {},
     hiddenGroups: {},
+    activeTags: {},
+    sortBy: 'name',
     search: '',
     selectedId: null,
     connectors: [],
@@ -212,10 +214,18 @@
         ? centroid(points)
         : { x: 0, y: 0 };
 
+    var tags = (Array.isArray(blip.tags) ? blip.tags : blip.tags ? [blip.tags] : [])
+      .map(function (t) {
+        return String(t).trim();
+      })
+      .filter(Boolean);
+
     return {
       id: blip.id || group + '-' + index,
       name: blip.name || 'Unnamed',
       type: isZone ? 'zone' : 'blip',
+      tags: tags,
+      disabled: blip.enabled === false || blip.disabled === true,
       points: points,
       section: SECTIONS[blip.section] ? blip.section : Object.keys(SECTIONS)[0],
       subsection: blip.subsection || null,
@@ -260,11 +270,19 @@
     };
   }
 
+  /* A blip with enabled:false (or disabled:true) is skipped entirely —
+   * it never reaches the map, the list or any count. */
+  function notDisabled(b) {
+    return !b.disabled;
+  }
+
   function loadPublicBlips() {
     var source = (window.BLIPS && window.BLIPS.public) || [];
-    state.blips = source.map(function (b, i) {
-      return normalise(b, 'public', i);
-    });
+    state.blips = source
+      .map(function (b, i) {
+        return normalise(b, 'public', i);
+      })
+      .filter(notDisabled);
     state.connectors = ((window.BLIPS && window.BLIPS.connectors) || []).map(function (c, i) {
       return normaliseConnector(c, 'public', i);
     });
@@ -283,7 +301,8 @@
     });
 
     data.blips.forEach(function (b, i) {
-      state.blips.push(normalise(b, group, i));
+      var normalised = normalise(b, group, i);
+      if (notDisabled(normalised)) state.blips.push(normalised);
     });
     data.connectors.forEach(function (c, i) {
       state.connectors.push(normaliseConnector(c, group, i));
@@ -365,11 +384,20 @@
     /* Blips with no subsection sit in the "section/" bucket, shown as "Other". */
     var subKey = blip.section + '/' + (blip.subsection || '');
     if (state.hiddenSubsections[subKey]) return false;
+    var active = Object.keys(state.activeTags);
+    if (active.length) {
+      var matched = blip.tags.some(function (t) {
+        return state.activeTags[t];
+      });
+      if (!matched) return false;
+    }
+
     var term = state.search.trim().toLowerCase();
     if (!term) return true;
     return (
       blip.name.toLowerCase().indexOf(term) !== -1 ||
-      blip.description.toLowerCase().indexOf(term) !== -1
+      blip.description.toLowerCase().indexOf(term) !== -1 ||
+      blip.tags.join(' ').toLowerCase().indexOf(term) !== -1
     );
   }
 
@@ -747,6 +775,11 @@
       '<div class="blip-popup-meta">' +
       '<span>' + escapeHtml(sectionPath(blip)) + '</span>' +
       (blip.type === 'zone' ? '<span class="blip-zone-tag">Zone</span>' : '') +
+      blip.tags
+        .map(function (t) {
+          return '<span class="popup-tag" style="border-color:' + tagColor(t) + ';color:' + tagColor(t) + '">' + escapeHtml(t) + '</span>';
+        })
+        .join('') +
       (blip.group !== 'public'
         ? '<span class="blip-group-tag" style="color:' + (grp.color || '#888') + '">' +
           escapeHtml(grp.label || blip.group) + '</span>'
@@ -931,6 +964,81 @@
     }).length;
   }
 
+  var tagFilterEl = document.getElementById('tag-filter');
+
+  /* Tags are collected from the blips themselves — nothing to declare
+   * in config.js. */
+  function allTags() {
+    var counts = {};
+    accessibleBlips().forEach(function (b) {
+      b.tags.forEach(function (t) {
+        counts[t] = (counts[t] || 0) + 1;
+      });
+    });
+    return Object.keys(counts)
+      .sort(function (a, b) {
+        return a.localeCompare(b);
+      })
+      .map(function (name) {
+        return { name: name, count: counts[name] };
+      });
+  }
+
+  function tagColor(name) {
+    var configured = (CONFIG.tagColors || {})[name];
+    if (configured) return configured;
+    /* Stable colour per tag name, so they don't shuffle between loads. */
+    var hash = 0;
+    for (var i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % 360;
+    return 'hsl(' + hash + ', 65%, 60%)';
+  }
+
+  function renderTags() {
+    var tags = allTags();
+    if (!tags.length) {
+      tagFilterEl.innerHTML = '';
+      tagFilterEl.hidden = true;
+      return;
+    }
+    tagFilterEl.hidden = false;
+
+    var activeCount = Object.keys(state.activeTags).length;
+
+    var html =
+      '<div class="tag-head">' +
+      '<span>' + window.Icons.icon('tag', 11) + 'Tags</span>' +
+      (activeCount ? '<button class="tag-clear" data-clear-tags>Clear ' + activeCount + '</button>' : '') +
+      '</div><div class="filter-chips">';
+
+    tags.forEach(function (tag) {
+      var on = !!state.activeTags[tag.name];
+      html +=
+        '<button class="filter-chip tag-chip' + (on ? ' on' : '') + '" data-tag="' + escapeHtml(tag.name) + '"' +
+        ' style="--tag-color:' + tagColor(tag.name) + '">' +
+        '<span class="chip-dot" style="background:' + tagColor(tag.name) + '"></span>' +
+        escapeHtml(tag.name) + '<span class="chip-count">' + tag.count + '</span></button>';
+    });
+
+    tagFilterEl.innerHTML = html + '</div>';
+
+    tagFilterEl.querySelectorAll('[data-tag]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var name = btn.getAttribute('data-tag');
+        if (state.activeTags[name]) delete state.activeTags[name];
+        else state.activeTags[name] = true;
+        renderAll();
+      });
+    });
+
+    var clearBtn = tagFilterEl.querySelector('[data-clear-tags]');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        state.activeTags = {};
+        renderAll();
+      });
+    }
+  }
+
   function renderNav() {
     var html = '';
 
@@ -1054,10 +1162,32 @@
    * Sidebar — list
    * ------------------------------------------------------------------ */
 
-  function renderList() {
-    var blips = visibleBlips().sort(function (a, b) {
+  function sortBlips(list) {
+    var byName = function (a, b) {
       return a.name.localeCompare(b.name);
-    });
+    };
+
+    if (state.sortBy === 'section') {
+      return list.sort(function (a, b) {
+        return sectionPath(a).localeCompare(sectionPath(b)) || byName(a, b);
+      });
+    }
+
+    if (state.sortBy === 'tag') {
+      /* Untagged blips sort last rather than first. */
+      var key = function (b) {
+        return b.tags.length ? b.tags.slice().sort()[0].toLowerCase() : '\uffff';
+      };
+      return list.sort(function (a, b) {
+        return key(a).localeCompare(key(b)) || byName(a, b);
+      });
+    }
+
+    return list.sort(byName);
+  }
+
+  function renderList() {
+    var blips = sortBlips(visibleBlips());
 
     countEl.textContent = blips.length + (blips.length === 1 ? ' location' : ' locations');
 
@@ -1079,7 +1209,13 @@
         '<span class="blip-row-name">' + escapeHtml(blip.name) +
         (blip.heading !== null ? '<span class="row-heading" title="Heading">&#9650;</span>' : '') +
         '</span>' +
-        '<span class="blip-row-sub">' + escapeHtml(sectionPath(blip)) +
+        '<span class="blip-row-sub">' +
+        blip.tags
+          .map(function (t) {
+            return '<span class="row-tag" style="color:' + tagColor(t) + '">' + escapeHtml(t) + '</span>';
+          })
+          .join('') +
+        escapeHtml(sectionPath(blip)) +
         (blip.group !== 'public'
           ? ' &middot; <span style="color:' + (grp.color || '#888') + '">' + escapeHtml(grp.label || blip.group) + '</span>'
           : '') +
@@ -1144,6 +1280,7 @@
   }
 
   function renderAll() {
+    renderTags();
     renderNav();
     renderList();
     renderMarkers();
@@ -1498,6 +1635,11 @@
     setTimeout(function () {
       if (!document.querySelector('.leaflet-popup')) clearSelection();
     }, 0);
+  });
+
+  document.getElementById('sort-by').addEventListener('change', function (e) {
+    state.sortBy = e.target.value;
+    renderList();
   });
 
   document.getElementById('search').addEventListener('input', function (e) {

@@ -5,7 +5,7 @@
   var PATHS = {
     house: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/>',
     shop: '<path d="M3 9V5h18v4"/><path d="M3 9h18l-1 3a3 3 0 0 1-5.6.8A3 3 0 0 1 12 12a3 3 0 0 1-2.4 0.8A3 3 0 0 1 4 12Z"/><path d="M5 13v8h14v-8"/>',
-    car: '<path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8"/><path d="M7 14h.01"/><path d="M17 14h.01"/><rect width="18" height="8" x="3" y="10" rx="2"/><path d="M5 18v2"/><path d="M19 18v2"/>',
+    car: '<path d="M5 17h14"/><path d="M4 17v-4l2-5h12l2 5v4"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>',
     briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     'log-in': '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><path d="M15 12H3"/>',
@@ -18,6 +18,16 @@
     link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     crosshair: '<circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
     polygon: '<path d="M12 3 21 9.5 17.5 20h-11L3 9.5Z"/>',
+    utensils: '<path d="M4 3v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3"/><path d="M6 12v9"/><path d="M17 3c-1.7 1-2.5 3-2.5 5.5 0 2 .8 3.2 2 3.5V21"/><path d="M19.5 3v18"/>',
+    wine: '<path d="M8 22h8"/><path d="M12 15v7"/><path d="M6 3h12l-.6 6a5.4 5.4 0 0 1-10.8 0Z"/><path d="M5.8 9h12.4"/>',
+    wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/>',
+    fuel: '<path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M2 22h12"/><path d="M5 8h6"/><path d="M16 9h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V10l-3-3"/>',
+    plane: '<path d="M17.8 19.2 16 11l3.5-3.5a2.1 2.1 0 0 0-3-3L13 8 4.8 6.2a1 1 0 0 0-.9 1.7L8 11l-2 3H3l2 3 3 2v-3l3-2 3.1 4.1a1 1 0 0 0 1.7-.9Z"/>',
+    boat: '<path d="M2 20a3 3 0 0 0 3-2 3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 3 2"/><path d="M4 18 3 9h18l-1 9"/><path d="M12 3v6"/>',
+    tools: '<path d="M14.5 5.5 18 2l4 4-3.5 3.5"/><path d="m18 9.5-9 9L5 22l-3-3 3.5-4 9-9"/><path d="M2 6.5 6 2l3 3-1.5 1.5"/>',
+    warehouse: '<path d="M22 20V8.5a2 2 0 0 0-1.3-1.9l-8-3a2 2 0 0 0-1.4 0l-8 3A2 2 0 0 0 2 8.5V20"/><path d="M6 20v-8h12v8"/><path d="M6 16h12"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>',
+    tag: '<path d="M12.6 2.6a2 2 0 0 0-1.4-.6H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.2 8.2a2 2 0 0 0 2.8 0l7.2-7.2a2 2 0 0 0 0-2.8Z"/><path d="M7 7h.01"/>',
     layers:
       '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
     github:
@@ -58,10 +68,7 @@
     corner: '<polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/>',
     minimize: '<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
-    alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
-    wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/>',
-    wine: '<path d="M10 3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a6 6 0 0 0 1.2 3.6l.6.8A6 6 0 0 1 17 13v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-8a6 6 0 0 1 1.2-3.6l.6-.8A6 6 0 0 0 10 5z"/>',
-    utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>'
+    alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'
   };
 
   function icon(name, size) {

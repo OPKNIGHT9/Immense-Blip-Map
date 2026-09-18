@@ -13,8 +13,8 @@
     <!-- Bump ?v= on every asset below whenever you change a file. Without
          it, browsers keep serving the previous version from cache and your
          changes appear not to have deployed. -->
-    <link rel="stylesheet" href="vendor/leaflet/leaflet.css?v=4" />
-    <link rel="stylesheet" href="css/styles.css?v=4" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css?v=5" />
+    <link rel="stylesheet" href="css/styles.css?v=5" />
   </head>
   <body>
     <div id="toasts" class="toast-container"></div>
@@ -39,6 +39,8 @@
           <input type="text" id="search" placeholder="Search locations..." autocomplete="off" />
         </div>
 
+        <div class="tag-filter" id="tag-filter" hidden></div>
+
         <div class="nav-tree" id="nav-tree"></div>
 
         <div class="split-handle" id="split-handle" title="Drag to resize &bull; double-click to reset">
@@ -47,6 +49,14 @@
 
         <div class="list-header">
           <span id="blip-count">0 locations</span>
+          <label class="sort-control">
+            <span>Sort</span>
+            <select id="sort-by">
+              <option value="name">Name</option>
+              <option value="section">Section</option>
+              <option value="tag">Tag</option>
+            </select>
+          </label>
         </div>
 
         <div class="blip-list" id="blip-list"></div>
@@ -140,12 +150,12 @@
       </div>
     </div>
 
-    <script src="vendor/leaflet/leaflet.js?v=4"></script>
-    <script src="data/config.js?v=4"></script>
-    <script src="data/blips.js?v=4"></script>
-    <script src="data/users.js?v=4"></script>
-    <script src="js/icons.js?v=4"></script>
-    <script src="js/crypto.js?v=4"></script>
-    <script src="js/app.js?v=4"></script>
+    <script src="vendor/leaflet/leaflet.js?v=5"></script>
+    <script src="data/config.js?v=5"></script>
+    <script src="data/blips.js?v=5"></script>
+    <script src="data/users.js?v=5"></script>
+    <script src="js/icons.js?v=5"></script>
+    <script src="js/crypto.js?v=5"></script>
+    <script src="js/app.js?v=5"></script>
   </body>
 </html>

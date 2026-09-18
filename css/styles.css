@@ -271,7 +271,11 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
 /* List */
 
 .list-header {
-  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 18px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   font-size: 11px;
@@ -1088,3 +1092,101 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
 .blip-tooltip::before { display: none; }
 
 .leaflet-tooltip.blip-tooltip.leaflet-tooltip-top { margin-bottom: 2px; }
+
+/* Tag filter */
+
+.tag-filter { padding: 2px 18px 10px; }
+
+.tag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.tag-head > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-3);
+}
+
+.tag-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag-clear:hover { color: var(--danger); }
+
+.tag-chip.on {
+  background: color-mix(in srgb, var(--tag-color) 18%, transparent);
+  border-color: var(--tag-color);
+  color: var(--text);
+}
+
+.tag-chip { opacity: 1; }
+
+/* Sort control */
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sort-control > span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.sort-control select {
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.sort-control select:focus { border-color: var(--accent); }
+.sort-control select option { background: #16161a; color: var(--text); }
+
+/* Tag badges */
+
+.row-tag {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.popup-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
