@@ -105,7 +105,15 @@ connectors: [
 | `chain` | Each member to the next, in order |
 | `hub` | The first member to all the rest |
 
-Selecting any member lights the whole group. Group connectors work inside encrypted group payloads too — see below.
+Selecting any member lights the whole group.
+
+A connector in the public `connectors` array can name blips that live inside an encrypted group. Members that aren't loaded are skipped, so the lines simply don't exist until someone signs in and those blips decrypt. The trade-off: the connector's name and its member ids sit in the public file. If those alone would give something away, put the connector inside the group's encrypted payload instead — encrypt an object rather than an array:
+
+```json
+{ "blips": [ ... ], "connectors": [ ... ] }
+```
+
+Step 2 of the admin tool accepts either shape.
 
 **Zones.** Give a blip a `points` array of three or more coordinate pairs and it renders as a filled area instead of a pin:
 

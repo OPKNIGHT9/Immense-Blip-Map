@@ -35,6 +35,17 @@ window.CONFIG = {
    * Coordinates are appended as floats. Heading is never included. */
   tpCommand: '/tp',
 
+  /* Sections with no blips are left out of the sidebar. A section whose
+   * blips sit behind a login therefore stays absent until someone signs
+   * in. Set true to list them anyway, with a count of 0. */
+  showEmptySections: false,
+
+  /* Optional. Tags get a colour derived from their name, which stays
+   * stable between loads. Pin specific ones here if you'd rather choose:
+   *   tagColors: { MLO: '#f59e0b', IPL: '#a855f7', 'Los Santos': '#38bdf8' },
+   * Tags themselves are declared nowhere — they come from the blips. */
+  tagColors: {},
+
   /* Starting state of the three map toggles. All three can be flipped
    * from the buttons in the top-left of the map. */
   connectionsOn: true,

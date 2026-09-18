@@ -45,8 +45,10 @@
           <p>
             Paste the blips as a JSON array. Optional per-blip fields: <code>heading</code> (0-360, 0 = north),
             <code>icon</code>, <code>color</code>, <code>subsection</code>, and <code>connections</code>
-            (an array of blip <code>id</code>s). Give a <code>points</code> array of three or more <code>{x, y}</code> pairs to make it a filled zone instead of a pin. The output goes into the <code>groups</code> section of
-            <code>data/blips.js</code>.
+            (an array of blip <code>id</code>s). Give a <code>points</code> array of three or more <code>{x, y}</code> pairs to make it a filled zone instead of a pin.
+            To give the group its own connector groups, paste an object instead of an array:
+            <code>{ "blips": [...], "connectors": [...] }</code>.
+            The output goes into the <code>groups</code> section of <code>data/blips.js</code>.
           </p>
           <label class="field">
             <span>Group name</span>
@@ -177,9 +179,30 @@
           try {
             parsed = JSON.parse(raw);
           } catch (err) {
-            return fail('enc-out', 'the blips are not valid JSON — ' + err.message);
+            /* JSON forbids trailing commas, JavaScript doesn't. Since this
+             * data usually gets copied out of blips.js, retry once with
+             * them stripped rather than making you hunt for the comma. */
+            try {
+              parsed = JSON.parse(raw.replace(/,(\s*[}\]])/g, '$1'));
+            } catch (err2) {
+              return fail('enc-out', 'the blips are not valid JSON — ' + err.message);
+            }
           }
-          if (!Array.isArray(parsed)) return fail('enc-out', 'the blips should be a JSON array.');
+          /* Either a bare array of blips, or an object carrying blips and
+           * that group's own connectors. */
+          var count;
+          if (Array.isArray(parsed)) {
+            count = parsed.length + ' blips';
+          } else if (parsed && Array.isArray(parsed.blips)) {
+            count =
+              parsed.blips.length + ' blips, ' +
+              ((parsed.connectors && parsed.connectors.length) || 0) + ' connectors';
+          } else {
+            return fail(
+              'enc-out',
+              'expected a JSON array of blips, or an object like { "blips": [...], "connectors": [...] }.'
+            );
+          }
 
           Z.importGroupKey(Z.hexToBytes(keyHex))
             .then(function (key) {
@@ -188,7 +211,8 @@
             .then(function (payload) {
               show(
                 'enc-out',
-                'Paste this inside the "groups" object in data/blips.js:\n\n' +
+                'Encrypted ' + count + '.\n\n' +
+                  'Paste this inside the "groups" object in data/blips.js:\n\n' +
                   '    ' + group + ': {\n' +
                   '      encrypted: "' + payload + '"\n' +
                   '    }'

@@ -578,13 +578,24 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
 .blip-popup .leaflet-popup-tip { background: rgba(16, 16, 20, 0.97); }
 .blip-popup a.leaflet-popup-close-button { color: var(--text-3); }
 
-.blip-popup-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.blip-popup-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-right: 14px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.blip-popup-head .blip-dot { margin-top: 5px; flex-shrink: 0; }
 .blip-dot { width: 8px; height: 8px; border-radius: 50%; }
 .blip-popup-inner p { margin: 7px 0 0; font-size: 11.5px; color: var(--text-2); line-height: 1.5; }
 
 .blip-popup-meta {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
   margin-top: 8px;
   font-size: 10px;
   text-transform: uppercase;
@@ -593,6 +604,45 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
 }
 
 .blip-group-tag { font-weight: 700; }
+
+/* Section path, on its own line so long paths don't crush the badges */
+.blip-popup-path {
+  margin-top: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* Tag / zone / group pills */
+.blip-popup-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.popup-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid var(--border-hover);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-2);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popup-badge.is-group { font-weight: 700; }
+.popup-badge.is-zone { letter-spacing: 0.5px; }
 
 .blip-copy-btn {
   width: 100%;
@@ -1178,16 +1228,6 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
   font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.popup-tag {
-  display: inline-block;
-  padding: 1px 6px;
-  border: 1px solid;
-  border-radius: 999px;
-  font-size: 9px;
-  font-weight: 700;
   letter-spacing: 0.4px;
 }
 

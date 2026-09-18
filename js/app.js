@@ -510,7 +510,7 @@
         polygon.bindPopup(popupHtml(blip), {
           className: 'blip-popup',
           closeButton: true,
-          minWidth: 232,
+          minWidth: 250,
           autoPan: false
         });
 
@@ -556,7 +556,7 @@
         className: 'blip-popup',
         closeButton: true,
         offset: [0, -14],
-        minWidth: 232,
+        minWidth: 250,
         autoPan: false
       });
 
@@ -775,19 +775,8 @@
       '<strong>' + escapeHtml(blip.name) + '</strong>' +
       '</div>' +
       (blip.description ? '<p>' + escapeHtml(blip.description) + '</p>' : '') +
-      '<div class="blip-popup-meta">' +
-      '<span>' + escapeHtml(sectionPath(blip)) + '</span>' +
-      (blip.type === 'zone' ? '<span class="blip-zone-tag">Zone</span>' : '') +
-      blip.tags
-        .map(function (t) {
-          return '<span class="popup-tag" style="border-color:' + tagColor(t) + ';color:' + tagColor(t) + '">' + escapeHtml(t) + '</span>';
-        })
-        .join('') +
-      (blip.group !== 'public'
-        ? '<span class="blip-group-tag" style="color:' + (grp.color || '#888') + '">' +
-          escapeHtml(grp.label || blip.group) + '</span>'
-        : '') +
-      '</div>' +
+      '<div class="blip-popup-path">' + escapeHtml(sectionPath(blip)) + '</div>' +
+      badgesHtml(blip) +
       '<div class="fmt-row">' + buttons + '</div>' +
       '<button class="fmt-value" data-copy="' + escapeHtml(formatValue(blip, chosen)) + '" title="Click to copy">' +
       '<span>' + escapeHtml(formatValue(blip, chosen)) + '</span>' +
@@ -797,6 +786,36 @@
       connectionListHtml(blip) +
       '</div>'
     );
+  }
+
+  /* Tags, the zone marker and the access group, as one wrapping row of
+   * pills below the section path. */
+  function badgesHtml(blip) {
+    var grp = GROUPS[blip.group] || {};
+    var pills = [];
+
+    if (blip.type === 'zone') {
+      pills.push('<span class="popup-badge is-zone">Zone</span>');
+    }
+
+    blip.tags.forEach(function (t) {
+      var color = tagColor(t);
+      pills.push(
+        '<span class="popup-badge" style="border-color:' + color + '66;color:' + color +
+        ';background:' + color + '1a">' + escapeHtml(t) + '</span>'
+      );
+    });
+
+    if (blip.group !== 'public') {
+      var gc = grp.color || '#888';
+      pills.push(
+        '<span class="popup-badge is-group" style="border-color:' + gc + '66;color:' + gc +
+        ';background:' + gc + '1a">' + escapeHtml(grp.label || blip.group) + '</span>'
+      );
+    }
+
+    if (!pills.length) return '';
+    return '<div class="blip-popup-badges">' + pills.join('') + '</div>';
   }
 
   function zonePointsHtml(blip) {
@@ -1095,6 +1114,12 @@
       var sec = SECTIONS[key];
       var subKeys = sec.subsections ? Object.keys(sec.subsections) : [];
       var total = countIn(key);
+
+      /* A section with nothing in it is noise — a group's section stays
+       * hidden until someone signs in and its blips load. Set
+       * showEmptySections: true in config.js to keep them listed. */
+      if (!total && !CONFIG.showEmptySections) return;
+
       var off = !!state.hiddenSections[key];
       var isCollapsed = !!state.collapsed[key];
       var color = sec.color || DEFAULT_COLOR;
