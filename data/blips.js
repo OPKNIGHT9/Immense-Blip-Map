@@ -240,36 +240,25 @@ window.BLIPS = {
   /* Connector groups link several blips at once. mode: 'mesh' (every
    * pair), 'chain' (in order) or 'hub' (first to all the rest). */
   connectors: [
-    // {
-    //   "id": "transport-run",
-    //   "name": "Cargo Run",
-    //   "color": "#06b6d4",
-    //   "mode": "chain",
-    //   "members": [
-    //     "docks-warehouse",
-    //     "lsia",
-    //     "sandy-airfield",
-    //     "grapeseed-farm",
-    //     "quarry"
-    //   ]
-    // }
+    {
+      "id": "pd-station",
+      "name": "Stations",
+      "color": "#2410d9",
+      "mode": "mesh",
+      "members": [
+        "mrpd",
+        "hwp",
+        "sspd",
+        "pbpd"
+      ]
+    }
   ],
 
   groups: {
     /* Encrypted with each group's key. Regenerate via tools/admin.html
      * whenever you add or change a group's blips. */
-    // police: {
-    //   encrypted: "MVVP2TRSrMcbNoQrTDQcYQJFJZgTrT+2fwvS5bV3LDFz3+qqISP6rVyS1LTE/4Ve4B7EJNc07h0Arni7kAzV4ZpD6ZXcfI0ATxuIxRVZjYNX0M94obl9pxbgkYZaFbORw7lPotMhhU7QO3FKyfLy0gXz8NwTRWpmTSfTk6M5b5Pc35c0AEYiEcRs9xKzyFZ7xH4VQJ7esM/TCEPCMxeoiKtMxSQ41VmPH1+pn0xhMr9ax1Xq3w37CDZoaGt662nWxd06AGiAwjXn7hypX2q1asy7C0X9QuxqpCBO/NoDIfhZrWIlQqvN2lT+Vb/tkckePLIttz1c3jmNCVIwtIrCIwN4bG/TXbbFUlCtXQ9RwpZHLSkjhtqBLqwQ1YPx8x3x8EoPlhIvC+/0/vtMW54E3jAIQz2R9mFiuQg8RK4VLnTN0u8SBNlFEESKNGhWkfIw3NcEoiUUSIhNpCy1nSl7SXcSbWRf/+jxt4e/OBXjrz4t47G0Jdot4qP7gPmG/VLu1OSIRhy3xUc6bfIHN3BCVzrqrOF/KnLhVc2411pqTFVT0a2WmpFgVb/laQnXG/hL1AnWWUGxaizUIIxlz8IfILs68b6x1jNosSb9oiGast1QkmBUrZknj9Fmierd8GjOKP80GvNMEijBI2AsTgOSvm+twrzpMqHIrcl10qDmt8wF//FN5Jd87OUDnAXa6zaHdZCBGQURXKy11+92916DawSbC0ek035w6oUgyBCXA8xhrc2AuHsJB7JvBYyKXolQpFDP+NTMBk25UTgauRSFXrrN2+dqAXFcbC4YnG24kDM0QQ=="
-    // },
-
-    /* While setting things up you can use plain text instead, but anyone
-     * reading this file can then see the blips:
-     *
-     * testing: {
-     *   plaintextPublic: true,
-     *   blips: [ { name: 'Test', section: 'general', x: 0, y: 0 } ],
-     *   connectors: []
-     * }
-     */
+    service: {
+      encrypted: "Cp5lL9oP7V/w1kZzQmMGjXvM6OzftWVGmBadqcAL8WyQqkmKkKytuF+KDvhZWdGGP87muukl7AJziaHhHh2kvOkgKdFjaWGsAXTq96WDLzfuyXVTwiLQYOg9Yf0PrIUx2gApzHUGADzRddm1789hvbINPFviGqq10GH58wkEqYQJ27EIBARgRj1gxJBnJWTiTlgIs4MTT4fUiYzetxk8HcRFtgs+0l0ZQ6lqycvmk/1nvA5r165wNbk+kOyKPgZyvh5JP5nTvqmEelpv8+ufP219KI5qTtIXgHoMSsjEqxm8fK0zrK8IFA+AwYePR8w35p3j0kUBkN0NWfsaGopzdIiN8hzUOeFpW+l5kFlKCz7ilCx82BOYJNbfakN4bbzurpsk7ZpNw7KzwUxiAT4OV6iTZP73wYNJUD03Zw4KcTvugC13rUtQfTsuSlM4ovX8sHWaIsGkR0vDNPBvZvH61ZfXzhqgZmDeTE+qUEUVwaGKXGaHN7wMMiXKy2TATCWZ2A54BmsHAozomfeLSDu8wV0eYYvmgul8KjDiryWR1Yi0CYT3fc98pZOXEsWCp4j9eYzHouNTpuT2rFhTC0KyWhsu7RdtSJn03IJp3O4WipDd12YdRHAdrQF9ZkKlHJXZ1Kk1V+e+eBpH9cNgrlm6vDd6/zpxxi7tyfEuByILgtGf9hXYaxwEyCnd3HJUtvtD+4DJMU0n4wrq9K9msts/E7kvqtDiXSs8bm2AywrAHXga+dobu31eI7vgwwFIaQvQPUEl+D9GKmS5dgpyyVQvas3sczrm49eQ5fSSRe6pJs2VsXahDX0cNektviXb8qTMI2C5qBTh4mS1bPE14Wo4PSHtyP6odOC4RsR5PN4eMvIir9T6tufZy+oOAeLIaL6iSp1gWDmn3fN+EEWTIlm3lLR7l4g77duZungoNO9j9zrYHpqx8V1XWOIXIFhCOdluj+b0FN4ijiwHRfc/L5Bs6xH0P4U4plFpU9Uw3yuOVdv3+5cSX3N0znp3Rec2b8JErMiKmZU75N/lY6LQ6kMTO4qJAmFLC45WOKq/4WXFckW7Xic0C0CAkbQHjEOIYg=="
+    }
   }
 };

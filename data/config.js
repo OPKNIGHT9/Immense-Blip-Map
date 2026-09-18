@@ -84,6 +84,7 @@ window.CONFIG = {
    * ---------------------------------------------------------------- */
   groups: {
     public: { label: 'Public', color: '#22c55e' },
+    service: { label: 'Public Services', color: '#e011ba' },
   },
 
   footerNote: 'Locations are in-game only.'
