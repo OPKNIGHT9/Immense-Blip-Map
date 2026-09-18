@@ -1190,3 +1190,45 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
   font-weight: 700;
   letter-spacing: 0.4px;
 }
+
+/* Individual blips inside the section tree */
+
+.nav-subsection { margin-bottom: 1px; }
+.nav-subsection .nav-row { gap: 0; }
+.nav-subsection .nav-caret { width: 18px; height: 24px; }
+
+.nav-leaves {
+  margin: 1px 0 3px 26px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.nav-leaf {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-leaf:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+
+.nav-leaf.off {
+  opacity: 0.4;
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+
+.nav-leaf.off:hover { opacity: 0.7; }
+.nav-leaf-icon { display: flex; flex-shrink: 0; }
+.nav-leaf .nav-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

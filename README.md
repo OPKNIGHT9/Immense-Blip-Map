@@ -167,7 +167,9 @@ sections: {
 }
 ```
 
-A blip inherits its icon and colour from its subsection, then its section, unless it sets its own. Clicking a section name toggles its blips off; the caret folds it. `collapsed: true` starts a section folded, `hidden: true` starts it toggled off. Blips that name a section but no subsection get grouped under "Other".
+A blip inherits its icon and colour from its subsection, then its section, unless it sets its own.
+
+The tree goes three levels deep: section, subsection, then the individual blips. Carets expand; clicking a name toggles visibility at that level. So a caret on a subsection lists every blip in it, and clicking one of those switches off that single location — no code edit, no reload. Hidden blips stay in the tree, struck through with an eye-off icon, so you can put them back. These toggles last for the session; `enabled: false` in `blips.js` is the permanent version. `collapsed: true` starts a section folded, `hidden: true` starts it toggled off. Blips that name a section but no subsection get grouped under "Other".
 
 Icon names come from `js/icons.js` — `map-pin`, `house`, `shop`, `car`, `briefcase`, `star`, `flag`, `anchor`, `lock`, `key` and more. Adding your own is a matter of pasting an SVG path into that file.
 
@@ -209,6 +211,10 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 | `Esc` | Close any dialog, or clear the current selection |
 | Click bare map | Clear the current selection |
 | Click the highlighted row again | Clear the current selection |
+
+## Updating without losing your data
+
+`data/config.js`, `data/blips.js` and `data/users.js` are yours. When you unpack a new build over the repo, **check those three first** — a package that ships example data will overwrite them. Keeping a copy outside the repo before you extract takes a second and saves re-typing your blips.
 
 ## After you push a change
 

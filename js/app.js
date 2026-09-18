@@ -60,6 +60,8 @@
     hiddenSubsections: {},
     collapsed: {},
     hiddenGroups: {},
+    hiddenBlips: {},
+    navOpen: {},
     activeTags: {},
     sortBy: 'name',
     search: '',
@@ -378,6 +380,7 @@
   function isVisible(blip) {
     if (state.unlockedGroups.indexOf(blip.group) === -1) return false;
     if (state.hiddenGroups[blip.group]) return false;
+    if (state.hiddenBlips[blip.id]) return false;
     if (blip.type === 'zone' && !state.showZones) return false;
     if (blip.type !== 'zone' && !state.showPins) return false;
     if (state.hiddenSections[blip.section]) return false;
@@ -1039,6 +1042,52 @@
     }
   }
 
+  /* Blips filed under a section, optionally narrowed to one subsection.
+   * subKey === null means "no subsection" (the Other bucket). */
+  function blipsIn(sectionKey, subKey) {
+    return accessibleBlips()
+      .filter(function (b) {
+        if (b.section !== sectionKey) return false;
+        if (subKey === undefined) return true;
+        return (b.subsection || null) === subKey;
+      })
+      .sort(function (a, b) {
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  /* One row per blip, so any single location can be switched off from
+   * the sidebar without touching the data file. */
+  function leafRows(list) {
+    if (!list.length) return '';
+    return (
+      '<div class="nav-leaves">' +
+      list
+        .map(function (blip) {
+          var style = resolveStyle(blip);
+          var off = !!state.hiddenBlips[blip.id];
+          return (
+            '<button class="nav-leaf' + (off ? ' off' : '') + '" data-toggle-blip="' + escapeHtml(blip.id) + '"' +
+            ' title="' + (off ? 'Show' : 'Hide') + ' ' + escapeHtml(blip.name) + '">' +
+            '<span class="nav-leaf-icon" style="color:' + style.color + '">' +
+            window.Icons.icon(off ? 'eye-off' : style.icon, 12) + '</span>' +
+            '<span class="nav-name">' + escapeHtml(blip.name) + '</span>' +
+            '</button>'
+          );
+        })
+        .join('') +
+      '</div>'
+    );
+  }
+
+  function caret(key, isOpen, attr) {
+    return (
+      '<button class="nav-caret' + (isOpen ? ' open' : '') + '" ' + (attr || 'data-toggle-collapse') +
+      '="' + escapeHtml(key) + '" title="Expand or fold">' +
+      window.Icons.icon('chevron-right', 13) + '</button>'
+    );
+  }
+
   function renderNav() {
     var html = '';
 
@@ -1052,48 +1101,67 @@
 
       html += '<div class="nav-section' + (off ? ' off' : '') + '">';
       html += '<div class="nav-row">';
-
-      if (subKeys.length) {
-        html +=
-          '<button class="nav-caret' + (isCollapsed ? '' : ' open') + '" data-toggle-collapse="' + key + '"' +
-          ' title="Expand or fold">' + window.Icons.icon('chevron-right', 13) + '</button>';
-      } else {
-        html += '<span class="nav-caret-spacer"></span>';
-      }
-
+      html += total ? caret(key, !isCollapsed) : '<span class="nav-caret-spacer"></span>';
       html +=
-        '<button class="nav-label" data-toggle-section="' + key + '">' +
+        '<button class="nav-label" data-toggle-section="' + key + '" title="Show or hide this section">' +
         '<span class="nav-icon" style="color:' + color + '">' +
         window.Icons.icon(sec.icon || DEFAULT_ICON, 14) + '</span>' +
         '<span class="nav-name">' + escapeHtml(sec.label || key) + '</span>' +
         '<span class="nav-count">' + total + '</span>' +
         '</button>';
-
       html += '</div>';
 
-      if (subKeys.length && !isCollapsed) {
+      if (total && !isCollapsed) {
         html += '<div class="nav-children">';
+
         subKeys.forEach(function (subKey) {
           var sub = sec.subsections[subKey];
-          var subOff = !!state.hiddenSubsections[key + '/' + subKey];
+          var path = key + '/' + subKey;
+          var members = blipsIn(key, subKey);
+          if (!members.length) return;
+
+          var subOff = !!state.hiddenSubsections[path];
+          var subOpen = !!state.navOpen[path];
+
+          html += '<div class="nav-subsection">';
+          html += '<div class="nav-row">';
+          html += caret(path, subOpen, 'data-toggle-open');
           html +=
-            '<button class="nav-child' + (subOff ? ' off' : '') + '"' +
-            ' data-toggle-sub="' + key + '/' + subKey + '">' +
+            '<button class="nav-child' + (subOff ? ' off' : '') + '" data-toggle-sub="' + path + '"' +
+            ' title="Show or hide this subsection">' +
             '<span class="nav-child-dot" style="background:' + (sub.color || color) + '"></span>' +
             '<span class="nav-name">' + escapeHtml(sub.label || subKey) + '</span>' +
-            '<span class="nav-count">' + countIn(key, subKey) + '</span>' +
+            '<span class="nav-count">' + members.length + '</span>' +
             '</button>';
+          html += '</div>';
+          if (subOpen) html += leafRows(members);
+          html += '</div>';
         });
 
-        var looseCount = countIn(key, null);
-        if (looseCount) {
-          html +=
-            '<button class="nav-child' + (state.hiddenSubsections[key + '/'] ? ' off' : '') + '"' +
-            ' data-toggle-sub="' + key + '/">' +
-            '<span class="nav-child-dot" style="background:' + color + '"></span>' +
-            '<span class="nav-name">Other</span>' +
-            '<span class="nav-count">' + looseCount + '</span></button>';
+        /* Blips in this section that name no subsection. */
+        var loose = blipsIn(key, null);
+        if (loose.length) {
+          if (subKeys.length) {
+            var otherPath = key + '/';
+            var otherOpen = !!state.navOpen[otherPath];
+            html += '<div class="nav-subsection">';
+            html += '<div class="nav-row">';
+            html += caret(otherPath, otherOpen, 'data-toggle-open');
+            html +=
+              '<button class="nav-child' + (state.hiddenSubsections[otherPath] ? ' off' : '') + '"' +
+              ' data-toggle-sub="' + otherPath + '" title="Show or hide these">' +
+              '<span class="nav-child-dot" style="background:' + color + '"></span>' +
+              '<span class="nav-name">Other</span>' +
+              '<span class="nav-count">' + loose.length + '</span></button>';
+            html += '</div>';
+            if (otherOpen) html += leafRows(loose);
+            html += '</div>';
+          } else {
+            /* Section has no subsections at all — list its blips directly. */
+            html += leafRows(loose);
+          }
         }
+
         html += '</div>';
       }
 
@@ -1144,6 +1212,25 @@
         var key = btn.getAttribute('data-toggle-sub');
         if (state.hiddenSubsections[key]) delete state.hiddenSubsections[key];
         else state.hiddenSubsections[key] = true;
+        renderAll();
+      });
+    });
+
+    navEl.querySelectorAll('[data-toggle-open]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-toggle-open');
+        if (state.navOpen[key]) delete state.navOpen[key];
+        else state.navOpen[key] = true;
+        renderNav();
+      });
+    });
+
+    navEl.querySelectorAll('[data-toggle-blip]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-toggle-blip');
+        if (state.hiddenBlips[id]) delete state.hiddenBlips[id];
+        else state.hiddenBlips[id] = true;
+        if (state.selectedId === id) state.selectedId = null;
         renderAll();
       });
     });

@@ -13,9 +13,17 @@
  *   name         required
  *   section      a key from config.js sections
  *   subsection   optional, a key under that section's subsections
- *   coords       the coords of the blip
- *   heading      optional, 0-360 with 0 = north. Draws a direction arrow
- *                and enables the vec4 button
+ *   coords       "x, y, z" or "vector3(x, y, z)" or [x, y, z].
+ *                A fourth number is the heading.
+ *   heading      optional if not already in coords. 0-360, 0 = north.
+ *                Draws a direction arrow and enables the vec4 button
+ *   tags         optional array of free-text labels, e.g. ["MLO", "Base"].
+ *                They become filter chips in the sidebar and can be
+ *                sorted by. Invent whatever labels suit you — nothing
+ *                needs declaring in config.js
+ *   enabled      optional. false hides the blip completely: no marker,
+ *                no list entry, not counted anywhere. Use it to park a
+ *                location without deleting it
  *   icon         optional, overrides the section's icon
  *   color        optional, overrides the section's colour
  *   connections  optional array of blip ids to draw a line to
@@ -26,144 +34,163 @@ window.BLIPS = {
   public: [
     {
       "id": "henhouse",
+      "tags": ["MLO", "Paleto"],
       "name": "Hen House",
       "section": "business",
       "subsection": "food",
-      "coords": "-302.9332, 6267.124, 35.27686",
+      "coords": "-302.9332, 6267.124, 35.27686"
     },
     {
       "id": "rexdiner",
-      "name": "Rex\'s Dinner",
+      "tags": ["MLO", "Sandy Shores"],
+      "name": "Rex's Dinner",
       "section": "business",
       "subsection": "food",
-      "coords": "vector3(2532.0, 2607.0, 38.0)",
+      "coords": "vector3(2532.0, 2607.0, 38.0)"
     },
     {
       "id": "arcade",
+      "tags": ["MLO"],
       "name": "Eight Bit Arcade",
       "section": "business",
       "subsection": "other",
-      "coords": "vector3(-604.0, 288.2, 82.1)",
+      "coords": "vector3(-604.0, 288.2, 82.1)"
     },
     {
       "id": "pizza",
       "name": "Pizza This",
       "section": "business",
       "subsection": "food",
-      "coords": "vector3(95.07, 9.55, 68.59)",
+      "coords": "vector3(95.07, 9.55, 68.59)"
     },
     {
       "id": "tunershop",
       "name": "Tuners Mech Shop",
       "section": "business",
       "subsection": "mech",
-      "coords": "821.2342, -2102.592, 34.45048",
+      "coords": "821.2342, -2102.592, 34.45048"
     },
     {
       "id": "catcafe",
+      "tags": ["MLO"],
       "name": "UWU Cat Cafe",
       "section": "business",
       "subsection": "food",
-      "coords": "-583.802, -1059.24, 23.2042",
+      "coords": "-583.802, -1059.24, 23.2042"
     },
     {
       "id": "record",
       "name": "Ctrl Sound Recording Studio",
       "section": "business",
       "subsection": "other",
-      "coords": "-825.5715, -717.1394, 28.91001",
+      "coords": "-825.5715, -717.1394, 28.91001"
     },
     {
       "id": "sightings",
       "name": "Sightings Space Resturant",
       "section": "business",
       "subsection": "food",
-      "coords": "vector3(53.09, 209.01, 109.34)",
+      "coords": "vector3(53.09, 209.01, 109.34)"
     },
     {
       "id": "boathouse",
+      "tags": ["Sandy Shores"],
       "name": "Boat House",
       "section": "business",
       "subsection": "food",
-      "coords": "vector3(1539.0, 3790.0, 34.0)",
+      "coords": "vector3(1539.0, 3790.0, 34.0)"
     },
     {
       "id": "pdm",
       "name": "Premium Deluxe Motorsport",
       "section": "business",
       "subsection": "dealer",
-      "coords": "-1005.07867, -1507.96948, 8.797941",
+      "coords": "-1005.07867, -1507.96948, 8.797941"
     },
     {
       "id": "import",
       "name": "Rockford Import Dealership",
       "section": "business",
       "subsection": "dealer",
-      "coords": "-791.2505, -227.43457, 39.1784554",
+      "coords": "-791.2505, -227.43457, 39.1784554"
     },
     {
       "id": "hof",
       "name": "Hall of Fame",
       "section": "business",
       "subsection": "other",
-      "coords": "212.947632, 1170.6311, 233.092087",
+      "coords": "212.947632, 1170.6311, 233.092087"
     },
     {
       "id": "luxx",
       "name": "Luxx Nightclub",
       "section": "business",
       "subsection": "club",
-      "coords": "-80.2426, -1277.99731, 30.35423",
+      "coords": "-80.2426, -1277.99731, 30.35423"
     },
     {
       "id": "lsc",
       "name": "Los Santos Custom",
       "section": "business",
       "subsection": "mech",
-      "coords": "-327.895874, -131.346161, 49.6273537",
+      "coords": "-327.895874, -131.346161, 49.6273537"
     },
     {
       "id": "seaton",
+      "tags": ["Sandy Shores"],
       "name": "Seaton Sands",
       "section": "business",
       "subsection": "mech",
-      "coords": "vector3(1718.0, 3695.0, 36.0)",
+      "coords": "vector3(1718.0, 3695.0, 36.0)"
     },
     {
       "id": "vu",
       "name": "Vanilla Unicorn",
       "section": "business",
       "subsection": "club",
-      "coords": "128.79303, -1292.10437, 27.8926239",
+      "coords": "128.79303, -1292.10437, 27.8926239"
     },
     {
       "id": "paletomech",
+      "tags": ["Paleto"],
       "name": "Paleto Mechanic Shop",
       "section": "business",
       "subsection": "mech",
-      "coords": "-283.8359, 6029.02734, 30.5414181",
+      "coords": "-283.8359, 6029.02734, 30.5414181"
     },
     {
       "id": "petshop",
       "name": "Animal Ark",
       "section": "business",
       "subsection": "other",
-      "coords": "560.2896, 2771.7, 44.60243",
+      "coords": "560.2896, 2771.7, 44.60243"
     },
     {
       "id": "tequilala",
       "name": "Tequilala",
       "section": "business",
       "subsection": "food",
-      "coords": "-558.0049, 285.664, 81.1764",
+      "coords": "-558.0049, 285.664, 81.1764"
     },
     {
       "id": "lovebite",
       "name": "Love Bites",
       "section": "business",
       "subsection": "food",
-      "coords": "-1222.50293, -281.2516, 36.5717468",
+      "coords": "-1222.50293, -281.2516, 36.5717468"
     },
+    /* enabled: false parks a blip without deleting it. This one appears
+     * nowhere on the site. Flip it to true, or drop the line, to show it. */
+    {
+      "id": "example-parked",
+      "name": "Example — Parked Location",
+      "section": "business",
+      "subsection": "other",
+      "coords": "0.0, 0.0, 70.0",
+      "tags": ["MLO"],
+      "enabled": false
+    },
+
     // {
     //   "id": "downtown-zone",
     //   "name": "Downtown Safe Zone",
