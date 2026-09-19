@@ -155,6 +155,16 @@ Adding a blip to a group means re-running step 2 with the full list for that gro
 
 The demo file ships with three accounts — `admin` / `changeme`, `officer` / `police123`, `crew` / `crew123`. Replace them before you go live.
 
+## Map zones
+
+`data/zones.js` holds the 85 named GTA V zones as filled polygons — Richman, Grapeseed, Chumash, Paleto Bay and the rest. They append themselves to `window.BLIPS.public`, so `blips.js` stays entirely yours.
+
+They were generated from an in-game world scan: the game was asked which zone it was in at every point on a 100-unit grid, then cells sharing a zone were merged and outlined. Boundaries are accurate to roughly 50 units and rectilinear — fine for seeing where one district ends and the next begins, not survey-grade.
+
+They sit in a `districts` section that starts toggled off, since 85 overlapping polygons at once is a lot. Turn it on from the sidebar, or set `hidden: false` on that section in `config.js`.
+
+To remove them entirely, delete the `<script src="data/zones.js">` line from `index.html`. To drop individual zones, delete their entries from the file.
+
 ## Sections and groups
 
 These are two different things and it's worth keeping them straight.

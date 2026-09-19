@@ -10,7 +10,7 @@ window.CONFIG = {
   tagline: 'Server locations & points of interest',
 
   /* Link in the header. null hides it. */
-  headerLink: "http://discord.gg/immnenseRP",
+  headerLink: "http://discord.gg/immenseRP",
 
   /* Where the map opens. Game coordinates, not pixels. */
   defaultView: { x: 0, y: 0, zoom: -1 },
@@ -84,6 +84,16 @@ window.CONFIG = {
         dealer: { label: 'Dealership', icon: 'car', color: '#0f3561' },
         other: { label: 'Unqiue' }
       }
+    },
+
+    /* The 85 GTA V map zones, loaded from data/zones.js. Starts toggled
+     * off — flip hidden to false if you'd rather see them by default. */
+    districts: {
+      label: 'Map Zones',
+      icon: 'polygon',
+      color: '#94a3b8',
+      collapsed: true,
+      hidden: true
     },
 
     police: {
