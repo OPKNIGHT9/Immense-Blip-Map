@@ -1347,13 +1347,15 @@ body.resizing .split-handle { background: rgba(34, 197, 94, 0.18); }
 
 /* The icon is a zero-size point at the anchor; the span is pulled back by
  * half its own box so the text sits centred on that point. */
+/* No max-width here: the parent is a zero-width point, so a percentage
+ * would resolve to 0 and wrap the text one letter per line. The pixel
+ * value is set from script instead. */
 .zone-label span {
   position: absolute;
   left: 0;
   top: 0;
   transform: translate(-50%, -50%);
   width: max-content;
-  max-width: 100%;
   white-space: normal;
   overflow-wrap: break-word;
   text-shadow:

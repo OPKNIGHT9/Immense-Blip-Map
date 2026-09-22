@@ -226,7 +226,7 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 
 ## Member suggestions
 
-Signed-in members get a **Suggest a blip** button in the sidebar and a **Suggest an edit** link at the bottom of every blip popup. Both open your form in a new tab.
+A **Suggest a blip** button sits in the sidebar and a **Suggest an edit** link at the bottom of every blip popup. Both open your form in a new tab. Since nothing is prefilled, the button shows for everyone by default; set `requireLogin: true` to restrict it to signed-in members.
 
 Nothing is prefilled, so any URL works — a Google Form, a Discord invite to a suggestions channel, anything.
 
@@ -238,7 +238,7 @@ Correction — Hen House [henhouse] — Businesses / Food & Drink — -302.93, 6
 
 That line is what saves you guessing which location a report is about. Right-clicking the map first sets the coordinates used for a new-blip suggestion.
 
-Set `enabled: true` and fill in `formUrl` to switch it on. `requireLogin: false` opens it to everyone.
+Set `enabled: true` and fill in `formUrl` to switch it on.
 
 ## Map controls
 

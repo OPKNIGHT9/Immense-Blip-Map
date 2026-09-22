@@ -585,9 +585,15 @@
 
       el.style.display = '';
       el.style.fontSize = size.toFixed(1) + 'px';
-      el.style.maxWidth = fitMode
-        ? Math.max(40, zoneWidthPx * 0.9).toFixed(0) + 'px'
-        : Math.max(longest, zoneWidthPx * 0.92).toFixed(0) + 'px';
+
+      /* The wrap width belongs on the span — the marker element itself is
+       * a zero-width point, so a percentage there collapses to nothing. */
+      var span = el.firstElementChild;
+      if (span) {
+        span.style.maxWidth = fitMode
+          ? Math.max(40, zoneWidthPx * 0.9).toFixed(0) + 'px'
+          : Math.max(longest * 1.05, zoneWidthPx * 0.92).toFixed(0) + 'px';
+      }
     });
   }
 
@@ -1531,10 +1537,27 @@
    * Account
    * ------------------------------------------------------------------ */
 
+  function suggestButtonHtml() {
+    if (!canSuggest()) return '';
+    return (
+      '<button class="suggest-btn" id="btn-suggest">' +
+      window.Icons.icon('plus', 14) + '<span>Suggest a blip</span></button>'
+    );
+  }
+
+  function wireSuggestButton() {
+    var btn = document.getElementById('btn-suggest');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      openSuggest(null);
+    });
+  }
+
   function renderAccount() {
     var box = document.getElementById('account');
     if (!CONFIG.loginEnabled) {
-      box.innerHTML = '';
+      box.innerHTML = suggestButtonHtml();
+      wireSuggestButton();
       return;
     }
 
@@ -1548,27 +1571,21 @@
         });
 
       box.innerHTML =
-        (canSuggest()
-          ? '<button class="suggest-btn" id="btn-suggest">' +
-            window.Icons.icon('plus', 14) + '<span>Suggest a blip</span></button>'
-          : '') +
+        suggestButtonHtml() +
         '<div class="account-info">' +
         '<span class="account-icon">' + window.Icons.icon('user', 14) + '</span>' +
         '<span class="account-text"><strong>' + escapeHtml(state.user.label) + '</strong>' +
         '<span>' + (groupNames.length ? escapeHtml(groupNames.join(', ')) : 'No extra groups') + '</span></span>' +
         '<button class="account-btn" id="btn-logout" title="Sign out">' + window.Icons.icon('log-out', 14) + '</button></div>';
       document.getElementById('btn-logout').addEventListener('click', logout);
-      var suggestBtnEl = document.getElementById('btn-suggest');
-      if (suggestBtnEl) {
-        suggestBtnEl.addEventListener('click', function () {
-          openSuggest(null);
-        });
-      }
+      wireSuggestButton();
     } else {
       box.innerHTML =
+        suggestButtonHtml() +
         '<button class="login-btn" id="btn-login">' +
         window.Icons.icon('log-in', 14) + '<span>Member sign in</span></button>';
       document.getElementById('btn-login').addEventListener('click', openLogin);
+      wireSuggestButton();
     }
   }
 
