@@ -62,6 +62,7 @@
     hiddenGroups: {},
     hiddenBlips: {},
     navOpen: {},
+    lastPick: null,
     activeTags: {},
     sortBy: 'name',
     search: '',
@@ -434,6 +435,84 @@
     );
   }
 
+  /* The label is sized from the zone's own extent, so a big district gets
+   * big type and a small one small type. Recomputed on zoom, since the
+   * same zone covers more screen as you zoom in. */
+  function addZoneLabel(blip, style) {
+    var xs = blip.points.map(function (p) { return p.x; });
+    var ys = blip.points.map(function (p) { return p.y; });
+    var widthUnits = Math.max.apply(null, xs) - Math.min.apply(null, xs);
+    var heightUnits = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+
+    var label = L.marker(gtaToLatLng(blip.x, blip.y), {
+      interactive: false,
+      keyboard: false,
+      icon: L.divIcon({
+        className: 'zone-label',
+        html: '<span style="color:' + style.color + '">' + escapeHtml(blip.name) + '</span>',
+        iconSize: [0, 0]
+      })
+    }).addTo(zoneLayer);
+
+    zoneLabels.push({ marker: label, width: widthUnits, height: heightUnits, name: blip.name });
+  }
+
+  /* Screen pixels per game unit at the current zoom: one image pixel is
+   * 2^zoom screen pixels, and one game unit is SCALE_X image pixels. */
+  function pxPerUnit() {
+    return SCALE_X * Math.pow(2, map.getZoom());
+  }
+
+  function longestWord(name) {
+    return name.split(/\s+/).reduce(function (n, w) {
+      return Math.max(n, w.length);
+    }, 1);
+  }
+
+  /* Default mode: type size comes from the zone's real-world size alone,
+   * so Grand Senora Desert always reads larger than Calafia Bridge and
+   * neither changes as you zoom. Mapped on a log scale because zone areas
+   * span two orders of magnitude.
+   *
+   * Set zoneLabelMode: 'fit' in config.js for the alternative, where the
+   * label is sized to fill the zone on screen and so grows with zoom. */
+  function labelSizeForZone(entry) {
+    var extent = Math.sqrt(Math.max(entry.width, 1) * Math.max(entry.height, 1));
+    var t = (Math.log(extent) / Math.LN10 - 2) / 1.6;
+    return Math.max(9, Math.min(30, 9 + t * 21));
+  }
+
+  function labelSizeToFit(entry) {
+    var scale = pxPerUnit();
+    var byWidth = (entry.width * scale * 0.86) / (longestWord(entry.name) * 0.55);
+    var byHeight = (entry.height * scale) / 3;
+    return Math.min(byWidth, byHeight);
+  }
+
+  function updateZoneLabels() {
+    var fitMode = CONFIG.zoneLabelMode === 'fit';
+
+    zoneLabels.forEach(function (entry) {
+      var el = entry.marker.getElement();
+      if (!el) return;
+
+      var size = fitMode ? labelSizeToFit(entry) : labelSizeForZone(entry);
+
+      /* Only the fit mode hides anything — in zone mode the label is a
+       * fixed size and stays put at every zoom. */
+      if (fitMode && size < 7) {
+        el.style.display = 'none';
+        return;
+      }
+
+      el.style.display = '';
+      el.style.fontSize = Math.min(size, 42).toFixed(1) + 'px';
+      el.style.maxWidth = fitMode
+        ? Math.max(40, entry.width * pxPerUnit() * 0.9).toFixed(0) + 'px'
+        : '7.5em';
+    });
+  }
+
   function renderVertices(blip, style) {
     blip.points.forEach(function (point, index) {
       var vertex = L.marker(gtaToLatLng(point.x, point.y), {
@@ -480,6 +559,7 @@
   }
 
   var vertexMarkers = {};
+  var zoneLabels = [];
 
   function renderMarkers() {
     blipLayer.clearLayers();
@@ -487,6 +567,7 @@
     vertexLayer.clearLayers();
     markers = {};
     vertexMarkers = {};
+    zoneLabels = [];
 
     visibleBlips().forEach(function (blip) {
       var style = resolveStyle(blip);
@@ -535,6 +616,8 @@
         });
 
         markers[blip.id] = polygon;
+
+        if (CONFIG.zoneLabels !== false) addZoneLabel(blip, style);
 
         /* Selecting a zone exposes its vertices. */
         if (isSelected) renderVertices(blip, style);
@@ -784,6 +867,10 @@
       '</button>' +
       zonePointsHtml(blip) +
       connectionListHtml(blip) +
+      (canSuggest()
+        ? '<button class="suggest-link" data-suggest="' + escapeHtml(blip.id) + '">' +
+          window.Icons.icon('edit', 11) + '<span>Suggest an edit</span></button>'
+        : '') +
       '</div>'
     );
   }
@@ -931,6 +1018,12 @@
       if (blip && marker && marker.getPopup()) {
         marker.setPopupContent(popupHtml(blip));
       }
+      return;
+    }
+
+    var suggestBtn = e.target.closest && e.target.closest('[data-suggest]');
+    if (suggestBtn) {
+      openSuggest(suggestBtn.getAttribute('data-suggest'));
       return;
     }
 
@@ -1377,12 +1470,22 @@
         });
 
       box.innerHTML =
+        (canSuggest()
+          ? '<button class="suggest-btn" id="btn-suggest">' +
+            window.Icons.icon('plus', 14) + '<span>Suggest a blip</span></button>'
+          : '') +
         '<div class="account-info">' +
         '<span class="account-icon">' + window.Icons.icon('user', 14) + '</span>' +
         '<span class="account-text"><strong>' + escapeHtml(state.user.label) + '</strong>' +
         '<span>' + (groupNames.length ? escapeHtml(groupNames.join(', ')) : 'No extra groups') + '</span></span>' +
         '<button class="account-btn" id="btn-logout" title="Sign out">' + window.Icons.icon('log-out', 14) + '</button></div>';
       document.getElementById('btn-logout').addEventListener('click', logout);
+      var suggestBtnEl = document.getElementById('btn-suggest');
+      if (suggestBtnEl) {
+        suggestBtnEl.addEventListener('click', function () {
+          openSuggest(null);
+        });
+      }
     } else {
       box.innerHTML =
         '<button class="login-btn" id="btn-login">' +
@@ -1396,6 +1499,7 @@
     renderNav();
     renderList();
     renderMarkers();
+    updateZoneLabels();
     renderAccount();
     document.getElementById('btn-connections').classList.toggle('active', state.showConnections);
     document.getElementById('btn-pins').classList.toggle('active', state.showPins);
@@ -1623,7 +1727,10 @@
     if (e.key === 'Escape') closeZoomInput();
   });
   zoomInputEl.addEventListener('blur', closeZoomInput);
-  map.on('zoomend', renderZoom);
+  map.on('zoomend', function () {
+    renderZoom();
+    if (CONFIG.zoneLabelMode === 'fit') updateZoneLabels();
+  });
   document.getElementById('zoom-box').title = 'Zoom (' + MIN_PCT + '-' + MAX_PCT + '%) — click to type a value';
 
   /* ------------------------------------------------------------------ *
@@ -1679,6 +1786,95 @@
     } catch (err) {
       /* ignore */
     }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Suggestions — hand off to a prefilled Google Form
+   * ------------------------------------------------------------------ */
+
+  var SUGGEST = CONFIG.suggestions || {};
+  var suggestModal = document.getElementById('modal-suggest');
+
+  function canSuggest() {
+    if (!SUGGEST.enabled || !SUGGEST.formUrl) return false;
+    if (SUGGEST.requireLogin !== false && !state.user) return false;
+    return true;
+  }
+
+  /* Where a new blip would go: the last right-click, else the map centre. */
+  function pickedCoords() {
+    if (state.lastPick) return state.lastPick;
+    var c = map.getCenter();
+    var gta = latLngToGta(c.lat, c.lng);
+    return { x: round2(gta.x), y: round2(gta.y) };
+  }
+
+  function openSuggest(blipId) {
+    if (!canSuggest()) return;
+
+    var blip = blipId ? state.byId[blipId] : null;
+    var coords = blip
+      ? f(blip.x) + ', ' + f(blip.y) + ', ' + f(blip.z == null ? 0 : blip.z)
+      : f(pickedCoords().x) + ', ' + f(pickedCoords().y) + ', 0.00';
+
+    document.getElementById('suggest-type').value = blip ? 'Correction' : 'New blip';
+    document.getElementById('suggest-name').value = blip ? blip.name : '';
+    document.getElementById('suggest-section').value = blip ? sectionPath(blip) : '';
+    document.getElementById('suggest-coords').value = coords;
+    document.getElementById('suggest-tags').value = blip ? blip.tags.join(', ') : '';
+    document.getElementById('suggest-details').value = '';
+    document.getElementById('suggest-blip-id').value = blip ? blip.id : '';
+
+    document.getElementById('suggest-context').textContent = blip
+      ? 'About: ' + blip.name
+      : 'New location at ' + coords;
+
+    suggestModal.hidden = false;
+    setTimeout(function () {
+      document.getElementById('suggest-details').focus();
+    }, 50);
+  }
+
+  function buildFormUrl() {
+    var fields = SUGGEST.fields || {};
+    var values = {
+      type: document.getElementById('suggest-type').value,
+      name: document.getElementById('suggest-name').value,
+      blipId: document.getElementById('suggest-blip-id').value,
+      section: document.getElementById('suggest-section').value,
+      coords: document.getElementById('suggest-coords').value,
+      tags: document.getElementById('suggest-tags').value,
+      details: document.getElementById('suggest-details').value,
+      submittedBy: state.user ? state.user.username : ''
+    };
+
+    var params = new URLSearchParams();
+    params.set('usp', 'pp_url');
+    Object.keys(values).forEach(function (key) {
+      var entry = fields[key];
+      if (entry && values[key]) params.set(entry, values[key]);
+    });
+
+    var base = String(SUGGEST.formUrl).split('?')[0];
+    return base + '?' + params.toString();
+  }
+
+  function submitSuggestion() {
+    var details = document.getElementById('suggest-details').value.trim();
+    if (!details) {
+      toast('Add a note describing the change');
+      document.getElementById('suggest-details').focus();
+      return;
+    }
+    window.open(buildFormUrl(), '_blank', 'noopener');
+    suggestModal.hidden = true;
+    toast('Form opened in a new tab');
+  }
+
+  document.getElementById('btn-do-suggest').addEventListener('click', submitSuggestion);
+
+  suggestModal.addEventListener('mousedown', function (e) {
+    if (e.target === suggestModal) suggestModal.hidden = true;
   });
 
   /* ------------------------------------------------------------------ *
@@ -1817,6 +2013,7 @@
     if (e.key === 'Escape') {
       loginModal.hidden = true;
       jumpModal.hidden = true;
+      suggestModal.hidden = true;
       clearSelection();
     }
   });
@@ -1836,6 +2033,7 @@
   if (CONFIG.copyCoordsOnRightClick) {
     map.on('contextmenu', function (e) {
       var gta = latLngToGta(e.latlng.lat, e.latlng.lng);
+      state.lastPick = { x: round2(gta.x), y: round2(gta.y) };
       copyText(f(gta.x) + ', ' + f(gta.y));
       toast('Copied ' + f(gta.x) + ', ' + f(gta.y));
     });

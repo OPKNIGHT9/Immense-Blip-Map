@@ -13,8 +13,8 @@
     <!-- Bump ?v= on every asset below whenever you change a file. Without
          it, browsers keep serving the previous version from cache and your
          changes appear not to have deployed. -->
-    <link rel="stylesheet" href="vendor/leaflet/leaflet.css?v=12" />
-    <link rel="stylesheet" href="css/styles.css?v=12" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css?v=15" />
+    <link rel="stylesheet" href="css/styles.css?v=15" />
   </head>
   <body>
     <div id="toasts" class="toast-container"></div>
@@ -150,13 +150,70 @@
       </div>
     </div>
 
-    <script src="vendor/leaflet/leaflet.js?v=12"></script>
-    <script src="data/config.js?v=12"></script>
-    <script src="data/blips.js?v=12"></script>
-    <script src="data/zones.js?v=12"></script>
-    <script src="data/users.js?v=12"></script>
-    <script src="js/icons.js?v=12"></script>
-    <script src="js/crypto.js?v=12"></script>
-    <script src="js/app.js?v=12"></script>
+    <div class="modal-overlay" id="modal-suggest" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Suggest a change</h3>
+          <button class="modal-close" data-close="modal-suggest">
+            <span data-icon="x" data-size="16"></span>
+          </button>
+        </div>
+        <div class="modal-content">
+          <p id="suggest-context">New location</p>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Type</span>
+              <select id="suggest-type">
+                <option>New blip</option>
+                <option>Correction</option>
+                <option>Removal</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Coordinates</span>
+              <input type="text" id="suggest-coords" autocomplete="off" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Name</span>
+            <input type="text" id="suggest-name" placeholder="Hen House" autocomplete="off" />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Section</span>
+              <input type="text" id="suggest-section" placeholder="Businesses / Food &amp; Drink" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Tags</span>
+              <input type="text" id="suggest-tags" placeholder="MLO, Paleto" autocomplete="off" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>What should change?</span>
+            <textarea id="suggest-details" rows="4" placeholder="Describe the change..."></textarea>
+          </label>
+
+          <input type="hidden" id="suggest-blip-id" />
+          <p class="field-hint">Opens a form in a new tab with these details filled in.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" data-close="modal-suggest">Cancel</button>
+          <button class="btn primary" id="btn-do-suggest">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="vendor/leaflet/leaflet.js?v=15"></script>
+    <script src="data/config.js?v=15"></script>
+    <script src="data/blips.js?v=15"></script>
+    <script src="data/zones.js?v=15"></script>
+    <script src="data/users.js?v=15"></script>
+    <script src="js/icons.js?v=15"></script>
+    <script src="js/crypto.js?v=15"></script>
+    <script src="js/app.js?v=15"></script>
   </body>
 </html>

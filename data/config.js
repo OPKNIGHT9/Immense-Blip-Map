@@ -35,6 +35,17 @@ window.CONFIG = {
    * Coordinates are appended as floats. Heading is never included. */
   tpCommand: '/tp',
 
+  /* Print each zone's name inside its area. */
+  zoneLabels: true,
+
+  /* How the label is sized.
+   *   'zone' (default) — from the zone's real-world size only, so a big
+   *                      district always reads bigger than a small one
+   *                      and nothing changes as you zoom.
+   *   'fit'            — sized to fill the zone on screen, so it grows
+   *                      with zoom and hides when too small to read. */
+  zoneLabelMode: 'zone',
+
   /* Sections with no blips are left out of the sidebar. A section whose
    * blips sit behind a login therefore stays absent until someone signs
    * in. Set true to list them anyway, with a count of 0. */
@@ -115,6 +126,45 @@ window.CONFIG = {
   groups: {
     public: { label: 'Public', color: '#22c55e' },
     service: { label: 'Public Services', color: '#e011ba' },
+  },
+
+  /* ---------------------------------------------------------------- *
+   * SUGGESTIONS — let signed-in members propose new blips and
+   * corrections. The site opens a Google Form in a new tab with the
+   * fields already filled in, so there's no backend and nothing secret
+   * in this file.
+   *
+   * Setup:
+   *  1. Build a Google Form with one question per field you want below.
+   *     Short-answer questions are easiest. Add whatever extra questions
+   *     you like — they just won't be prefilled.
+   *  2. In the form editor, use the three-dot menu > "Get pre-filled
+   *     link", type a recognisable dummy value into every question, and
+   *     press "Get link".
+   *  3. The link it copies looks like
+   *     .../viewform?usp=pp_url&entry.1234567=dummy&entry.7654321=dummy
+   *     Put the part before "?" into formUrl, and match each
+   *     entry.NNNNN to the right field name below.
+   *  4. Set enabled: true.
+   *
+   * Leave a field as '' to skip prefilling it.
+   * ---------------------------------------------------------------- */
+  suggestions: {
+    enabled: true,
+    requireLogin: true,
+
+    formUrl: 'https://forms.gle/gRHf95fxXDKV5hET6',
+
+    fields: {
+      type: '',        /* New blip / Correction / Removal */
+      name: '',        /* the location's name */
+      blipId: '',      /* id of the blip being corrected, if any */
+      section: '',     /* section / subsection */
+      coords: '',      /* x, y, z */
+      tags: '',        /* comma-separated */
+      details: '',     /* free text */
+      submittedBy: ''  /* the member's username */
+    }
   },
 
   footerNote: 'Locations are in-game only.'

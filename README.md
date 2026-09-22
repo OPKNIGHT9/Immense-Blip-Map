@@ -161,6 +161,17 @@ The demo file ships with three accounts — `admin` / `changeme`, `officer` / `p
 
 They were generated from an in-game world scan: the game was asked which zone it was in at every point on a 100-unit grid, then cells sharing a zone were merged and outlined. Boundaries are accurate to roughly 50 units and rectilinear — fine for seeing where one district ends and the next begins, not survey-grade.
 
+Every zone gets its own colour, walked around the hue wheel by golden angle so neighbouring entries never land on similar shades. Change any of them by editing that zone's `color`.
+
+Each zone's name is printed inside its area, sized from the zone's real-world size alone — Grand Senora Desert reads at 27px, Legion Square at 11px, and neither changes as you zoom. `zoneLabels: false` turns labels off.
+
+`zoneLabelMode` controls the sizing:
+
+| Mode | Behaviour |
+|---|---|
+| `'zone'` (default) | Size comes from the zone's extent. Fixed at every zoom. |
+| `'fit'` | Size fills the zone on screen, so it grows as you zoom in and hides when too small to read. |
+
 They sit in a `districts` section that starts toggled off, since 85 overlapping polygons at once is a lot. Turn it on from the sidebar, or set `hidden: false` on that section in `config.js`.
 
 To remove them entirely, delete the `<script src="data/zones.js">` line from `index.html`. To drop individual zones, delete their entries from the file.
@@ -212,6 +223,23 @@ Everything prints as a float. Coords includes the heading as a fourth number whe
 2. **Settings → Pages → Source → Deploy from a branch**, branch `main`, folder **/ (root)**.
 
 There's nothing to build, so no Actions workflow is needed — and if an old one is still in `.github/workflows`, delete it or it'll keep failing on the missing lockfile.
+
+## Member suggestions
+
+Signed-in members get a **Suggest a blip** button in the sidebar and a **Suggest an edit** link at the bottom of every blip popup. Both open a short form, then hand off to a Google Form in a new tab with the details already filled in — the name, section, tags, coordinates, the blip's id, and who submitted it. There's no backend and nothing secret in your files.
+
+Signed-out visitors never see either control.
+
+Setting it up:
+
+1. Build a Google Form with a short-answer question for each field you want: type, name, blip id, section, coordinates, tags, details, submitted by. Add any extra questions you like — they just won't be prefilled.
+2. In the form editor, open the three-dot menu, choose **Get pre-filled link**, type a recognisable dummy value into every question, and press **Get link**.
+3. The copied link looks like `.../viewform?usp=pp_url&entry.1234567=dummy&entry.7654321=dummy`. Put everything before the `?` into `formUrl`, and match each `entry.NNNNN` to the right field name in `suggestions.fields`.
+4. Set `enabled: true`.
+
+Leave any field as `''` to skip prefilling it. Set `requireLogin: false` to open suggestions to everyone.
+
+Right-clicking the map remembers that spot, so "Suggest a blip" after a right-click starts from those coordinates rather than the centre of the screen. Responses land in the form's spreadsheet, where you can sort by type and work through them.
 
 ## Map controls
 
