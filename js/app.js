@@ -561,7 +561,10 @@
       var el = entry.marker.getElement();
       if (!el) return;
 
-      var size = fitMode ? labelSizeToFit(entry) : labelSizeForZone(entry);
+      /* zoneLabelScale multiplies the computed size, so you can tune the
+       * whole set without touching the sizing maths. */
+      var scaleFactor = CONFIG.zoneLabelScale == null ? 1 : CONFIG.zoneLabelScale;
+      var size = (fitMode ? labelSizeToFit(entry) : labelSizeForZone(entry)) * scaleFactor;
       if (fitMode && size < 7) {
         el.style.display = 'none';
         return;

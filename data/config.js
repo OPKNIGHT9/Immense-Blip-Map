@@ -38,6 +38,10 @@ window.CONFIG = {
   /* Print each zone's name inside its area. */
   zoneLabels: true,
 
+  /* Multiplier applied to every zone label. 1 is the natural size,
+   * 0.5 is half, 1.5 half again as large. */
+  zoneLabelScale: 0.5,
+
   /* How the label is sized.
    *   'zone' (default) — from the zone's real-world size only, so a big
    *                      district always reads bigger than a small one

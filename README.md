@@ -165,7 +165,7 @@ Every zone gets its own colour, walked around the hue wheel by golden angle so n
 
 Each zone's name is printed at the zone's area centroid, sized from the zone's real-world size alone — Grand Senora Desert reads at 27px, Legion Square at 11px, and neither changes as you zoom. Because the type is a fixed size, a label hides itself once the zone is too small on screen to contain it, so names never spill outside their shape. `zoneLabels: false` turns labels off.
 
-`zoneLabelMode` controls the sizing:
+`zoneLabelScale` multiplies every label — 1 is the natural size, 0.5 half, and it ships at 0.5. `zoneLabelMode` controls how the natural size is worked out:
 
 | Mode | Behaviour |
 |---|---|
