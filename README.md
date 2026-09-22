@@ -163,7 +163,7 @@ They were generated from an in-game world scan: the game was asked which zone it
 
 Every zone gets its own colour, walked around the hue wheel by golden angle so neighbouring entries never land on similar shades. Change any of them by editing that zone's `color`.
 
-Each zone's name is printed inside its area, sized from the zone's real-world size alone — Grand Senora Desert reads at 27px, Legion Square at 11px, and neither changes as you zoom. `zoneLabels: false` turns labels off.
+Each zone's name is printed at the zone's area centroid, sized from the zone's real-world size alone — Grand Senora Desert reads at 27px, Legion Square at 11px, and neither changes as you zoom. Because the type is a fixed size, a label hides itself once the zone is too small on screen to contain it, so names never spill outside their shape. `zoneLabels: false` turns labels off.
 
 `zoneLabelMode` controls the sizing:
 
@@ -226,20 +226,19 @@ There's nothing to build, so no Actions workflow is needed — and if an old one
 
 ## Member suggestions
 
-Signed-in members get a **Suggest a blip** button in the sidebar and a **Suggest an edit** link at the bottom of every blip popup. Both open a short form, then hand off to a Google Form in a new tab with the details already filled in — the name, section, tags, coordinates, the blip's id, and who submitted it. There's no backend and nothing secret in your files.
+Signed-in members get a **Suggest a blip** button in the sidebar and a **Suggest an edit** link at the bottom of every blip popup. Both open your form in a new tab.
 
-Signed-out visitors never see either control.
+Nothing is prefilled, so any URL works — a Google Form, a Discord invite to a suggestions channel, anything.
 
-Setting it up:
+With `copyContext: true` (the default), clicking also copies a one-line summary to the clipboard for the member to paste in:
 
-1. Build a Google Form with a short-answer question for each field you want: type, name, blip id, section, coordinates, tags, details, submitted by. Add any extra questions you like — they just won't be prefilled.
-2. In the form editor, open the three-dot menu, choose **Get pre-filled link**, type a recognisable dummy value into every question, and press **Get link**.
-3. The copied link looks like `.../viewform?usp=pp_url&entry.1234567=dummy&entry.7654321=dummy`. Put everything before the `?` into `formUrl`, and match each `entry.NNNNN` to the right field name in `suggestions.fields`.
-4. Set `enabled: true`.
+```
+Correction — Hen House [henhouse] — Businesses / Food & Drink — -302.93, 6267.12, 35.28 — from knight
+```
 
-Leave any field as `''` to skip prefilling it. Set `requireLogin: false` to open suggestions to everyone.
+That line is what saves you guessing which location a report is about. Right-clicking the map first sets the coordinates used for a new-blip suggestion.
 
-Right-clicking the map remembers that spot, so "Suggest a blip" after a right-click starts from those coordinates rather than the centre of the screen. Responses land in the form's spreadsheet, where you can sort by type and work through them.
+Set `enabled: true` and fill in `formUrl` to switch it on. `requireLogin: false` opens it to everyone.
 
 ## Map controls
 

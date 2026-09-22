@@ -129,42 +129,23 @@ window.CONFIG = {
   },
 
   /* ---------------------------------------------------------------- *
-   * SUGGESTIONS — let signed-in members propose new blips and
-   * corrections. The site opens a Google Form in a new tab with the
-   * fields already filled in, so there's no backend and nothing secret
-   * in this file.
+   * SUGGESTIONS — let members propose new blips and corrections.
    *
-   * Setup:
-   *  1. Build a Google Form with one question per field you want below.
-   *     Short-answer questions are easiest. Add whatever extra questions
-   *     you like — they just won't be prefilled.
-   *  2. In the form editor, use the three-dot menu > "Get pre-filled
-   *     link", type a recognisable dummy value into every question, and
-   *     press "Get link".
-   *  3. The link it copies looks like
-   *     .../viewform?usp=pp_url&entry.1234567=dummy&entry.7654321=dummy
-   *     Put the part before "?" into formUrl, and match each
-   *     entry.NNNNN to the right field name below.
-   *  4. Set enabled: true.
+   * The site opens your form in a new tab. Nothing is prefilled, so any
+   * form will do — a Google Form, a Discord invite to a suggestions
+   * channel, anything with a URL.
    *
-   * Leave a field as '' to skip prefilling it.
+   * With copyContext on, clicking the button also copies a one-line
+   * summary to the clipboard — the blip's name, id, section and
+   * coordinates, plus who was signed in — so the member can paste it
+   * into the form instead of retyping it. That's the part that saves you
+   * guessing which location a report is about.
    * ---------------------------------------------------------------- */
   suggestions: {
     enabled: true,
     requireLogin: true,
-
-    formUrl: 'https://forms.gle/gRHf95fxXDKV5hET6',
-
-    fields: {
-      type: '',        /* New blip / Correction / Removal */
-      name: '',        /* the location's name */
-      blipId: '',      /* id of the blip being corrected, if any */
-      section: '',     /* section / subsection */
-      coords: '',      /* x, y, z */
-      tags: '',        /* comma-separated */
-      details: '',     /* free text */
-      submittedBy: ''  /* the member's username */
-    }
+    copyContext: true,
+    formUrl: 'https://forms.gle/gRHf95fxXDKV5hET6'
   },
 
   footerNote: 'Locations are in-game only.'

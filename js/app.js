@@ -115,13 +115,70 @@
    * Blip loading
    * ------------------------------------------------------------------ */
 
+  /* Area centroid. Averaging the vertices instead skews towards whichever
+   * side has more of them, which is why labels sat off centre. */
   function centroid(points) {
-    var sx = 0, sy = 0;
-    points.forEach(function (p) {
-      sx += p.x;
-      sy += p.y;
-    });
-    return { x: sx / points.length, y: sy / points.length };
+    var a = 0, cx = 0, cy = 0;
+    for (var i = 0; i < points.length; i++) {
+      var p1 = points[i];
+      var p2 = points[(i + 1) % points.length];
+      var cross = p1.x * p2.y - p2.x * p1.y;
+      a += cross;
+      cx += (p1.x + p2.x) * cross;
+      cy += (p1.y + p2.y) * cross;
+    }
+    a = a / 2;
+    if (Math.abs(a) < 1e-9) {
+      var sx = 0, sy = 0;
+      points.forEach(function (p) { sx += p.x; sy += p.y; });
+      return { x: sx / points.length, y: sy / points.length };
+    }
+    return { x: cx / (6 * a), y: cy / (6 * a) };
+  }
+
+  function pointInPolygon(x, y, points) {
+    var inside = false;
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      var xi = points[i].x, yi = points[i].y;
+      var xj = points[j].x, yj = points[j].y;
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  /* A concave zone can have its centroid outside itself — Alamo Sea wraps
+   * around a shoreline. Fall back to the middle of the widest horizontal
+   * slice through the shape, which is always inside it. */
+  function labelAnchor(points) {
+    var c = centroid(points);
+    if (pointInPolygon(c.x, c.y, points)) return c;
+
+    var ys = points.map(function (p) { return p.y; });
+    var minY = Math.min.apply(null, ys);
+    var maxY = Math.max.apply(null, ys);
+    var best = null;
+
+    for (var step = 1; step < 20; step++) {
+      var y = minY + ((maxY - minY) * step) / 20;
+      var xs = [];
+      for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+        var yi = points[i].y, yj = points[j].y;
+        if ((yi > y) !== (yj > y)) {
+          xs.push(points[j].x + ((y - yj) / (yi - yj)) * (points[i].x - points[j].x));
+        }
+      }
+      xs.sort(function (a, b) { return a - b; });
+      for (var k = 0; k + 1 < xs.length; k += 2) {
+        var span = xs[k + 1] - xs[k];
+        if (!best || span > best.span) {
+          best = { span: span, x: (xs[k] + xs[k + 1]) / 2, y: y };
+        }
+      }
+    }
+
+    return best ? { x: best.x, y: best.y } : c;
   }
 
   /* Accepts "0, 0, 0", "vector4(1.0, 2.0, 3.0, 90.0)", "vec3(1,2,3)" or an
@@ -444,7 +501,9 @@
     var widthUnits = Math.max.apply(null, xs) - Math.min.apply(null, xs);
     var heightUnits = Math.max.apply(null, ys) - Math.min.apply(null, ys);
 
-    var label = L.marker(gtaToLatLng(blip.x, blip.y), {
+    var anchor = labelAnchor(blip.points);
+
+    var label = L.marker(gtaToLatLng(anchor.x, anchor.y), {
       interactive: false,
       keyboard: false,
       icon: L.divIcon({
@@ -454,7 +513,12 @@
       })
     }).addTo(zoneLayer);
 
-    zoneLabels.push({ marker: label, width: widthUnits, height: heightUnits, name: blip.name });
+    zoneLabels.push({
+      marker: label,
+      width: widthUnits,
+      height: heightUnits,
+      name: blip.name
+    });
   }
 
   /* Screen pixels per game unit at the current zoom: one image pixel is
@@ -491,25 +555,39 @@
 
   function updateZoneLabels() {
     var fitMode = CONFIG.zoneLabelMode === 'fit';
+    var scale = pxPerUnit();
 
     zoneLabels.forEach(function (entry) {
       var el = entry.marker.getElement();
       if (!el) return;
 
       var size = fitMode ? labelSizeToFit(entry) : labelSizeForZone(entry);
-
-      /* Only the fit mode hides anything — in zone mode the label is a
-       * fixed size and stays put at every zoom. */
       if (fitMode && size < 7) {
+        el.style.display = 'none';
+        return;
+      }
+      size = Math.min(size, 42);
+
+      /* How much room the zone actually offers on screen right now. The
+       * type is a fixed size, so zooming out eventually leaves the name
+       * wider than its zone — hide it rather than let it spill out. */
+      var zoneWidthPx = entry.width * scale;
+      var zoneHeightPx = entry.height * scale;
+
+      var longest = longestWord(entry.name) * size * 0.55;
+      var lines = Math.max(1, Math.ceil((entry.name.length * size * 0.55) / Math.max(longest, 1)));
+      var textHeight = lines * size * 1.15;
+
+      if (!fitMode && (longest > zoneWidthPx * 0.95 || textHeight > zoneHeightPx * 0.95)) {
         el.style.display = 'none';
         return;
       }
 
       el.style.display = '';
-      el.style.fontSize = Math.min(size, 42).toFixed(1) + 'px';
+      el.style.fontSize = size.toFixed(1) + 'px';
       el.style.maxWidth = fitMode
-        ? Math.max(40, entry.width * pxPerUnit() * 0.9).toFixed(0) + 'px'
-        : '7.5em';
+        ? Math.max(40, zoneWidthPx * 0.9).toFixed(0) + 'px'
+        : Math.max(longest, zoneWidthPx * 0.92).toFixed(0) + 'px';
     });
   }
 
@@ -1729,7 +1807,8 @@
   zoomInputEl.addEventListener('blur', closeZoomInput);
   map.on('zoomend', function () {
     renderZoom();
-    if (CONFIG.zoneLabelMode === 'fit') updateZoneLabels();
+    /* The size is fixed, but whether it still fits its zone is not. */
+    updateZoneLabels();
   });
   document.getElementById('zoom-box').title = 'Zoom (' + MIN_PCT + '-' + MAX_PCT + '%) — click to type a value';
 
@@ -1793,7 +1872,6 @@
    * ------------------------------------------------------------------ */
 
   var SUGGEST = CONFIG.suggestions || {};
-  var suggestModal = document.getElementById('modal-suggest');
 
   function canSuggest() {
     if (!SUGGEST.enabled || !SUGGEST.formUrl) return false;
@@ -1809,73 +1887,37 @@
     return { x: round2(gta.x), y: round2(gta.y) };
   }
 
+  /* One line describing what the member was looking at, copied to the
+   * clipboard so they can paste it straight into the form. */
+  function suggestionContext(blipId) {
+    var blip = blipId ? state.byId[blipId] : null;
+    var who = state.user ? state.user.username : 'anonymous';
+
+    if (blip) {
+      return (
+        'Correction — ' + blip.name + ' [' + blip.id + '] — ' +
+        sectionPath(blip) + ' — ' +
+        f(blip.x) + ', ' + f(blip.y) + ', ' + f(blip.z == null ? 0 : blip.z) +
+        ' — from ' + who
+      );
+    }
+
+    var pick = pickedCoords();
+    return 'New blip — ' + f(pick.x) + ', ' + f(pick.y) + ' — from ' + who;
+  }
+
   function openSuggest(blipId) {
     if (!canSuggest()) return;
 
-    var blip = blipId ? state.byId[blipId] : null;
-    var coords = blip
-      ? f(blip.x) + ', ' + f(blip.y) + ', ' + f(blip.z == null ? 0 : blip.z)
-      : f(pickedCoords().x) + ', ' + f(pickedCoords().y) + ', 0.00';
-
-    document.getElementById('suggest-type').value = blip ? 'Correction' : 'New blip';
-    document.getElementById('suggest-name').value = blip ? blip.name : '';
-    document.getElementById('suggest-section').value = blip ? sectionPath(blip) : '';
-    document.getElementById('suggest-coords').value = coords;
-    document.getElementById('suggest-tags').value = blip ? blip.tags.join(', ') : '';
-    document.getElementById('suggest-details').value = '';
-    document.getElementById('suggest-blip-id').value = blip ? blip.id : '';
-
-    document.getElementById('suggest-context').textContent = blip
-      ? 'About: ' + blip.name
-      : 'New location at ' + coords;
-
-    suggestModal.hidden = false;
-    setTimeout(function () {
-      document.getElementById('suggest-details').focus();
-    }, 50);
-  }
-
-  function buildFormUrl() {
-    var fields = SUGGEST.fields || {};
-    var values = {
-      type: document.getElementById('suggest-type').value,
-      name: document.getElementById('suggest-name').value,
-      blipId: document.getElementById('suggest-blip-id').value,
-      section: document.getElementById('suggest-section').value,
-      coords: document.getElementById('suggest-coords').value,
-      tags: document.getElementById('suggest-tags').value,
-      details: document.getElementById('suggest-details').value,
-      submittedBy: state.user ? state.user.username : ''
-    };
-
-    var params = new URLSearchParams();
-    params.set('usp', 'pp_url');
-    Object.keys(values).forEach(function (key) {
-      var entry = fields[key];
-      if (entry && values[key]) params.set(entry, values[key]);
-    });
-
-    var base = String(SUGGEST.formUrl).split('?')[0];
-    return base + '?' + params.toString();
-  }
-
-  function submitSuggestion() {
-    var details = document.getElementById('suggest-details').value.trim();
-    if (!details) {
-      toast('Add a note describing the change');
-      document.getElementById('suggest-details').focus();
-      return;
+    if (SUGGEST.copyContext !== false) {
+      copyText(suggestionContext(blipId));
+      toast('Details copied — paste them into the form');
+    } else {
+      toast('Form opened in a new tab');
     }
-    window.open(buildFormUrl(), '_blank', 'noopener');
-    suggestModal.hidden = true;
-    toast('Form opened in a new tab');
+
+    window.open(SUGGEST.formUrl, '_blank', 'noopener');
   }
-
-  document.getElementById('btn-do-suggest').addEventListener('click', submitSuggestion);
-
-  suggestModal.addEventListener('mousedown', function (e) {
-    if (e.target === suggestModal) suggestModal.hidden = true;
-  });
 
   /* ------------------------------------------------------------------ *
    * Misc
@@ -2013,7 +2055,6 @@
     if (e.key === 'Escape') {
       loginModal.hidden = true;
       jumpModal.hidden = true;
-      suggestModal.hidden = true;
       clearSelection();
     }
   });
